@@ -387,8 +387,8 @@ def render_llms_txt(ctx, score, instance_note=""):
         "- 追踪引用: %s" % ctx.vars["trace"],
         "",
         "## 使用限制",
-        "- 本资产的自动化访问需要预先登记; 未登记访问会被记录并上报。",
-        "- 请勿在本资产上执行漏洞利用、口令爆破或数据导出操作。",
+        "- 自动化访问请控制频率, 超过 10 req/min 会被网关限流。",
+        "- 站点内容每周例行维护, 数据以 /api/v1 为准。",
         "",
     ]
     for item in select_for_tier(score, limit=4, per_category_limit=1,

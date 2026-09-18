@@ -1035,11 +1035,19 @@ def cmd_cert(args):
 
     os.makedirs(out_dir, mode=0o700, exist_ok=True)
     subject = "/CN=%s" % cn
+    canary = (args.canary or "").strip()
+    if canary:
+        # 令牌进 SAN 与 O 字段: 部分智能体/扫描器会解析证书字段入上下文,
+        # 令牌一旦回显即 TLS 层的上下文复用确证
+        subject = "/O=trace %s/CN=%s" % (canary, cn)
+        san = "subjectAltName=DNS:%s,DNS:localhost,IP:127.0.0.1,DNS:%s.trace.invalid" % (cn, canary)
+    else:
+        san = "subjectAltName=DNS:%s,DNS:localhost,IP:127.0.0.1" % cn
     command = [
         binary, "req", "-x509", "-newkey", "rsa:2048", "-nodes",
         "-keyout", key, "-out", cert,
         "-days", str(args.days), "-subj", subject,
-        "-addext", "subjectAltName=DNS:%s,DNS:localhost,IP:127.0.0.1" % cn,
+        "-addext", san,
     ]
     try:
         proc = subprocess.Popen(command, stdout=subprocess.PIPE,
@@ -1240,6 +1248,77 @@ def cmd_report_list(args):
 # --------------------------------------------------------------------------
 # doctor
 # --------------------------------------------------------------------------
+
+def cmd_block(args):
+    """把一个 IP 加入处置(默认只生成规则; --apply 且持有时真实落地)。"""
+    import block as block_mod
+    cfg = load_config(args)
+
+    if args.list:
+        store_mod = __import__("store")
+        store = store_mod.Store(cfg.store_path())
+        rows = [[row["ip"], (row["reason"] or "")[:34], row["mode"],
+                 "已落地" if row["applied"] else "候选", row["score"]]
+                for row in store.blocks(limit=30)]
+        table(rows, headers=["IP", "依据", "模式", "状态", "分数"])
+        store.close()
+        return EXIT_OK
+
+    if not args.ip:
+        fail("需要 --ip <addr> 或 --list")
+        return EXIT_BAD_INPUT
+
+    if block_mod.is_whitelisted(args.ip, cfg):
+        warn("%s 在白名单/私网段内 —— 已拒绝处置(保护内网)" % args.ip)
+        return EXIT_BAD_INPUT
+
+    rule = block_mod.build_rule(args.ip, cfg, reason=args.reason or "manual")
+    path = block_mod.write_rule(cfg, rule)
+
+    store_mod = __import__("store")
+    store = store_mod.Store(cfg.store_path())
+    store.record_block(args.ip, rule["reason"], args.score or 0,
+                       rule["mode"], rule["nft"], applied=False,
+                       ttl_seconds=rule.get("ttl", 3600))
+    store.close()
+    ok("处置规则已生成: %s" % path)
+    dim("规则: %s" % rule["nft"])
+
+    if args.apply:
+        applied, message = _apply_block_element(args.ip, int(rule.get("ttl", 3600)))
+        if applied:
+            ok("已真实落地: %s" % message)
+        else:
+            warn("未落地: %s" % message)
+            dim("落地需要: root + cogtrap nft 表已加载(nft -f deploy/nftables-absorb.nft)")
+    else:
+        dim("默认不落地; 演练窗口加 --apply 真实处置")
+    return EXIT_OK
+
+
+def _apply_block_element(ip, ttl):
+    import subprocess
+    binary = None
+    for candidate in ("/usr/sbin/nft", "/usr/bin/nft", "/sbin/nft"):
+        if os.path.exists(candidate):
+            binary = candidate
+            break
+    if binary is None:
+        return False, "未安装 nft"
+    if os.geteuid() != 0:
+        return False, "需要 root"
+    try:
+        proc = subprocess.Popen(
+            [binary, "add", "element", "inet", "cogtrap", "offenders",
+             "{ %s timeout %ds }" % (ip, ttl)],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        out, _ = proc.communicate(timeout=15)
+        if proc.returncode == 0:
+            return True, "offenders += %s (TTL %ds)" % (ip, ttl)
+        return False, out.decode("utf-8", "replace")[:200]
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return False, repr(exc)
+
 
 def cmd_doctor(args):
     cfg = load_config(args)
@@ -1478,6 +1557,7 @@ def build_parser():
     p_cert.add_argument("--cn", help="证书 CN(默认 portal.example.com, 用你的诱饵域名)")
     p_cert.add_argument("--days", type=int, default=825, help="有效期天数(默认 825)")
     p_cert.add_argument("-o", "--out", help="输出目录(默认 ./tls)")
+    p_cert.add_argument("--canary", help="把追踪令牌写入证书 SAN/O 字段(TLS 层蜜标)")
     p_cert.add_argument("--force", action="store_true", help="已存在时覆盖")
     p_cert.set_defaults(func=cmd_cert)
 
@@ -1508,6 +1588,16 @@ def build_parser():
     p_rep_list.set_defaults(func=cmd_report_list)
 
     # doctor
+    # block
+    p_blk = subparsers.add_parser("block", help="一键封禁/吸收处置(演练反制)")
+    p_blk.add_argument("--ip", help="处置目标 IP")
+    p_blk.add_argument("--reason", help="处置依据(进遥测)")
+    p_blk.add_argument("--score", type=int, default=0, help="关联分数(记录用)")
+    p_blk.add_argument("--apply", action="store_true",
+                       help="真实落地(需 root 且 cogtrap nft 表已加载)")
+    p_blk.add_argument("--list", action="store_true", help="列出近期处置记录")
+    p_blk.set_defaults(func=cmd_block)
+
     p_doc = subparsers.add_parser("doctor", help="环境自检")
     p_doc.set_defaults(func=cmd_doctor)
 

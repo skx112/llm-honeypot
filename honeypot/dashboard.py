@@ -50,6 +50,8 @@ EVIDENCE_KINDS = {
     "agent_config_captured": "攻击方配置泄漏",
     "honeytoken_read": "蜜标读取",
     "beacon_callback": "信标回调",
+    "attacker_fingerprint": "攻击者指纹",
+    "mcp_manifest_fetch": "MCP 清单拉取",
 }
 
 

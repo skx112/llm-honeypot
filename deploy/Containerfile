@@ -15,7 +15,12 @@ ARG BASE=python:3.9-slim
 FROM ${BASE}
 
 # 非特权运行用户(UID/GID 1000; 与通用容器惯例一致, 宿主侧按需映射)
-RUN groupadd -g 1000 cogtrap && useradd -u 1000 -g cogtrap -m -s /usr/sbin/nologin cogtrap
+RUN groupadd -g 1000 cogtrap && useradd -u 1000 -g cogtrap -m -s /usr/sbin/nologin cogtrap \
+    # 剥离全部 setuid 位: 即使 NoNewPrivs 失效也无提权面(逃逸审计 V7 的整改)
+    && find / -xdev -perm -4000 -type f -exec chmod u-s {} + 2>/dev/null || true \
+    # 屏蔽敏感内核接口(逃逸审计 V4 的整改; podman 3.3 无 --mask, 用空文件覆盖)
+    && : > /proc/kcore 2>/dev/null || true \
+    && chmod 000 /proc/kcore /proc/keys /proc/timer_list 2>/dev/null || true
 
 COPY honeypot/ /opt/cogtrap/honeypot/
 COPY bin/      /opt/cogtrap/bin/

@@ -35,6 +35,8 @@ EVIDENCE_LABELS = {
     "agent_config_captured": "攻击方配置泄漏",
     "honeytoken_read": "蜜标读取",
     "beacon_callback": "信标回调",
+    "attacker_fingerprint": "攻击者环境指纹",
+    "mcp_manifest_fetch": "MCP 清单拉取",
 }
 
 # 对外材料里需要保留的、可核验的标识

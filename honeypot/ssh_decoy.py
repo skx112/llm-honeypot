@@ -369,8 +369,7 @@ class SSHDecoy(object):
 
         # 6) 以合理的理由断开 —— 真实服务器也会在协议错误时这么做
         reason = 2 if delay > 2.0 else 11     # 2=协议错误, 11=by application
-        text = ("Connection closed by %s port %d" % (ip, record.get("port", 0))
-                if reason == 11 else "Protocol error: packet too large")
+        text = self._disconnect_text(ip, session)
         await self._send_disconnect(writer, reason, text)
         return record
 
@@ -651,6 +650,24 @@ class SSHDecoy(object):
         return delay * 1.5
 
     # ---- 报文构造 ------------------------------------------------------
+
+    def _disconnect_text(self, ip, session):
+        """携带 NL 反制的断开描述(会进攻击者的 SSH 客户端日志)。"""
+        base = "Connection closed by %s" % ip
+        try:
+            import inject as _inj
+            score = getattr(session, "score", 0) or 0
+            picked = _inj.select_for_tier(score, tier_hint=1, limit=1,
+                                          categories=("abort", "beacon"))
+            if picked:
+                ctx = getattr(session, "ctx", None)
+                if ctx is not None:
+                    snippet = ctx.render(picked[0]["text"]).strip()
+                    snippet = " ".join(snippet.split())[:180]
+                    return "%s (%s)" % (base, snippet)
+        except Exception:
+            pass
+        return base
 
     @staticmethod
     def _pack_raw(body_with_code):

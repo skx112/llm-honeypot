@@ -102,6 +102,8 @@ WEIGHTS = {
     "ssh_no_banner": 22,             # 不按协议发 banner, 非真实 SSH 客户端
     "ssh_brute_force_volume": 32,    # 同一来源高频重连(口令爆破特征)
     "ssh_old_or_anomalous_client": 16,
+    # JNDI 注入探测: 字符串本身即"在找 log4shell"的铁证 —— 高价值情报
+    "log4shell_probe": 26,
 
     # 反向信号(压低误报)
     "search_engine_crawler": -35,
@@ -854,6 +856,14 @@ def evaluate(profile, req, index=None, now=None):
     if profile.honeypot_path_hits:
         verdict.add("honeypot_path", kind="behavior",
                     evidence="命中诱饵路径: %s" % ",".join(profile.honeypot_path_hits[:6]))
+
+    # log4shell 探测(在任何位置出现 ${jndi:...} 即命中)
+    import re as _re
+    _hay = " ".join([target or "", body_text[:2048],
+                     " ".join(v for _, v in headers_lower[:20])])
+    if _re.search(r"\$\{jndi:(ldap[s]?|dns|rmi|iiop)", _hay, _re.I):
+        verdict.add("log4shell_probe", kind="semantic",
+                    evidence="JNDI 注入探测载荷(log4shell 利用尝试)")
 
     if req.malformed or not req.is_http:
         verdict.add("malformed_or_raw_http", kind="semantic",
