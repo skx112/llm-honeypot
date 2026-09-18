@@ -6,7 +6,14 @@
   "version": "1.0.0",
   "author": "CogTrap 内置模板库",
   "description": "模拟企业运维管理平台(Django + Gunicorn + PostgreSQL + Celery, Nginx 前置), 集成 Jenkins 与 Grafana 风格入口。主机清单、发布任务、K8s 配置与 SSH 私钥构成完整的横向移动诱饵链。",
-  "tags": ["ops", "django", "jenkins", "grafana", "kubernetes", "bastion"],
+  "tags": [
+    "ops",
+    "django",
+    "jenkins",
+    "grafana",
+    "kubernetes",
+    "bastion"
+  ],
   "branding": {
     "site_name": "示例云运维管理平台",
     "short_name": "示例运维",
@@ -22,7 +29,15 @@
   },
   "server": {
     "server_header": "nginx/1.25.3",
-    "tech_stack": ["nginx 1.25.3", "python 3.9.18", "django 3.2.18", "gunicorn 20.1.0", "postgresql 13.11", "redis 6.2.7", "celery 5.2.7"],
+    "tech_stack": [
+      "nginx 1.25.3",
+      "python 3.9.18",
+      "django 3.2.18",
+      "gunicorn 20.1.0",
+      "postgresql 13.11",
+      "redis 6.2.7",
+      "celery 5.2.7"
+    ],
     "framework": "Django 3.2.18",
     "wsgi": "gunicorn 20.1.0 (4 workers)",
     "web_root": "/opt/ops-platform",
@@ -32,7 +47,12 @@
     "grafana_url": "http://grafana.internal.example.com:3000"
   },
   "network": {
-    "internal_hosts": ["10.10.1.5", "10.10.1.6", "10.10.2.20", "10.10.2.21"],
+    "internal_hosts": [
+      "10.10.1.5",
+      "10.10.1.6",
+      "10.10.2.20",
+      "10.10.2.21"
+    ],
     "db_host": "10.10.1.5",
     "db_name": "ops_platform",
     "db_user": "ops_rw",
@@ -108,8 +128,17 @@
       "tarpit_weight": 0,
       "honeytokens": [],
       "note": "运维平台门户",
-      "headers": [["X-Request-Id", "{{hex16}}"], ["X-Ops-Node", "{{instance.canary}}"]],
-      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>{{branding.site_name}}</title><meta name='generator' content='ops-platform/{{branding.version_string}}'><link rel='stylesheet' href='/static/css/ops.css'></head><body><header><h1>{{branding.site_name}}</h1><span>v{{branding.version_string}} build {{build_id}}</span></header><nav><a href='/login'>登录</a> | <a href='/admin'>后台</a> | <a href='/admin/dashboard'>看板</a> | <a href='/jenkins/'>Jenkins</a> | <a href='/grafana/'>Grafana</a> | <a href='/api/docs'>API</a></nav><main><section><h2>资源概览</h2><ul><li>纳管主机 {{rand.int}} 台 (在线 {{rand.int}})</li><li>K8s 命名空间 {{k8s_namespace}} · Pod {{rand.int}} 个</li><li>今日发布 {{rand.int}} 次, 回滚 {{rand.int}} 次</li><li>活跃告警 {{rand.int}} 条</li></ul></section><section><h2>常用入口</h2><ul><li><a href='/jenkins/script'>Jenkins 脚本控制台</a></li><li><a href='/grafana/api/datasources'>Grafana 数据源</a></li><li><a href='/api/v1/hosts'>主机清单 API</a></li><li><a href='/api/v1/internal/k8s'>集群配置 (内网)</a></li></ul></section><p>值班: 张** ({{branding.support_email}}) · 维护窗口 每周三 01:00-03:00</p></main><footer><p>{{branding.footer}} · {{branding.copyright}}</p><p>追踪编号 {{instance.canary}} | node {{instance.host}}:{{instance.port}}</p></footer></body></html>"
+      "headers": [
+        [
+          "X-Request-Id",
+          "{{hex16}}"
+        ],
+        [
+          "X-Ops-Node",
+          "{{instance.canary}}"
+        ]
+      ],
+      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>{{branding.site_name}}</title><meta name='generator' content='ops-platform/{{branding.version_string}}'><link rel='stylesheet' href='/static/css/ops.css'></head><body><header><h1>{{branding.site_name}}</h1><span>v{{branding.version_string}} build {{build_id}}</span></header><nav><a href='/login'>登录</a> | <a href='/admin'>后台</a> | <a href='/admin/dashboard'>看板</a> | <a href='/jenkins/'>Jenkins</a> | <a href='/grafana/'>Grafana</a> | <a href='/api/docs'>API</a></nav><main><section><h2>资源概览</h2><ul><li>纳管主机 {{rand.int}} 台 (在线 {{rand.int}})</li><li>K8s 命名空间 {{k8s_namespace}} · Pod {{rand.int}} 个</li><li>今日发布 {{rand.int}} 次, 回滚 {{rand.int}} 次</li><li>活跃告警 {{rand.int}} 条</li></ul></section><section><h2>常用入口</h2><ul><li><a href='/jenkins/script'>Jenkins 脚本控制台</a></li><li><a href='/grafana/api/datasources'>Grafana 数据源</a></li><li><a href='/api/v1/hosts'>主机清单 API</a></li><li><a href='/api/v1/internal/k8s'>集群配置 (内网)</a></li></ul></section><p>值班: 张** ({{branding.support_email}}) · 维护窗口 每周三 01:00-03:00</p></main><footer><p>{{branding.footer}} · {{branding.copyright}}</p><p>| node {{instance.host}}:{{instance.port}}</p></footer></body></html>"
     },
     {
       "path": "/login",
@@ -163,7 +192,9 @@
       "status": 200,
       "title": "主机清单",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["ops_ssh_key"],
+      "honeytokens": [
+        "ops_ssh_key"
+      ],
       "tarpit_weight": 1,
       "note": "横向移动诱饵 + 假 SQL 注入点(参数 q)",
       "body": "{\n  \"count\": 1{{rand.int}},\n  \"page\": 1,\n  \"page_size\": 20,\n  \"results\": [\n    {\"hostname\": \"prod-app-0{{rand.int}}\", \"ip\": \"{{rand.ip}}\", \"env\": \"prod\", \"role\": \"k8s-worker\", \"os\": \"CentOS 7.9\", \"cpu\": {{rand.int:4-64}}, \"mem_gb\": {{rand.int:8-256}}, \"disk\": \"/data {{rand.int:100-2000}}G\", \"ssh_port\": 22, \"ansible_group\": \"prod-k8s\", \"owner\": \"张**\", \"ssh_key_path\": \"/root/.ssh/id_rsa\"},\n    {\"hostname\": \"prod-db-0{{rand.int}}\", \"ip\": \"{{rand.ip}}\", \"env\": \"prod\", \"role\": \"postgresql-primary\", \"os\": \"CentOS 7.9\", \"cpu\": {{rand.int:4-64}}, \"mem_gb\": {{rand.int:8-256}}, \"disk\": \"/data {{rand.int:100-2000}}G\", \"ssh_port\": 22, \"ansible_group\": \"prod-db\", \"owner\": \"李**\", \"ssh_key_path\": \"/root/.ssh/id_rsa\"},\n    {\"hostname\": \"prod-cache-0{{rand.int}}\", \"ip\": \"{{rand.ip}}\", \"env\": \"prod\", \"role\": \"redis\", \"os\": \"CentOS 7.9\", \"cpu\": {{rand.int:4-64}}, \"mem_gb\": {{rand.int:8-256}}, \"disk\": \"/data {{rand.int:100-2000}}G\", \"ssh_port\": 22, \"ansible_group\": \"prod-cache\", \"owner\": \"王**\", \"ssh_key_path\": \"/root/.ssh/id_rsa\"},\n    {\"hostname\": \"jump-0{{rand.int}}\", \"ip\": \"{{rand.ip}}\", \"env\": \"prod\", \"role\": \"bastion\", \"os\": \"Ubuntu 20.04\", \"cpu\": {{rand.int:4-64}}, \"mem_gb\": {{rand.int:8-256}}, \"disk\": \"/ {{rand.int}}G\", \"ssh_port\": 22, \"ansible_group\": \"bastion\", \"owner\": \"李**\", \"ssh_key_path\": \"/home/{{bastion_user}}/.ssh/id_rsa\"}\n  ],\n  \"note\": \"清单由 Celery 定时任务从 Ansible inventory 同步, 支持 q 参数模糊匹配主机名\",\n  \"trace\": \"{{instance.canary}}\"\n}"
@@ -175,7 +206,9 @@
       "status": 200,
       "title": "主机详情",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["ops_kubeconfig"],
+      "honeytokens": [
+        "ops_kubeconfig"
+      ],
       "note": "假越权点(参数 id)",
       "body": "{\n  \"id\": \"{{rand.int}}\",\n  \"hostname\": \"prod-app-0{{rand.int}}\",\n  \"ip\": \"{{rand.ip}}\",\n  \"env\": \"prod\",\n  \"ansible_vars\": {\"ansible_user\": \"deploy\", \"ansible_become\": true, \"ansible_ssh_private_key_file\": \"/opt/ops-platform/keys/id_rsa\"},\n  \"k8s\": {\"cluster\": \"prod-cluster\", \"api\": \"{{k8s_api}}\", \"namespace\": \"{{k8s_namespace}}\", \"sa_token\": \"{{api_token}}\"},\n  \"last_deploy\": {\"task_id\": \"DT{{rand.hex}}\", \"operator\": \"李**\", \"at\": \"{{rand.date}}\", \"git_commit\": \"{{rand.hex}}\"},\n  \"warning\": \"未校验项目归属, 任意 id 可读\",\n  \"trace\": \"{{instance.canary}}\"\n}"
     },
@@ -217,7 +250,9 @@
       "status": 200,
       "title": "Grafana 数据源",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["ops_grafana_ds"],
+      "honeytokens": [
+        "ops_grafana_ds"
+      ],
       "note": "未鉴权导出监控数据源配置",
       "body": "[\n  {\"id\": 1, \"name\": \"prod-pg\", \"type\": \"postgres\", \"url\": \"{{db_host}}:5432\", \"database\": \"{{db_name}}\", \"user\": \"{{db_user}}\", \"secureJsonData\": {\"password\": \"{{db_password}}\"}, \"isDefault\": true},\n  {\"id\": 2, \"name\": \"prometheus-prod\", \"type\": \"prometheus\", \"url\": \"http://{{grafana_host}}:9090\", \"basicAuthUser\": \"{{grafana_user}}\", \"secureJsonData\": {\"basicAuthPassword\": \"{{jwt_secret}}\"}},\n  {\"id\": 3, \"name\": \"loki\", \"type\": \"loki\", \"url\": \"http://{{grafana_host}}:3100\", \"jsonData\": {\"maxLines\": 5000}}\n]\n"
     },
@@ -239,7 +274,10 @@
       "status": 200,
       "title": "K8s 集群配置",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["ops_kubeconfig", "ops_ssh_key"],
+      "honeytokens": [
+        "ops_kubeconfig",
+        "ops_ssh_key"
+      ],
       "note": "未鉴权的集群凭据泄漏面",
       "body": "{\n  \"apiVersion\": \"v1\",\n  \"kind\": \"Config\",\n  \"current-context\": \"prod-cluster\",\n  \"clusters\": [{\"name\": \"prod-cluster\", \"cluster\": {\"server\": \"{{k8s_api}}\", \"insecure-skip-tls-verify\": true}}],\n  \"users\": [{\"name\": \"deploy-sa\", \"user\": {\"token\": \"{{api_token}}\"}}, {\"name\": \"ops-admin\", \"user\": {\"client-key-data\": \"LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQ=={{hex16}}\"}}],\n  \"contexts\": [{\"name\": \"prod-cluster\", \"context\": {\"cluster\": \"prod-cluster\", \"user\": \"deploy-sa\", \"namespace\": \"{{k8s_namespace}}\"}}],\n  \"bastion\": \"{{bastion_user}}@{{internal_hosts}}\",\n  \"trace\": \"{{instance.canary}}\"\n}"
     },
@@ -268,7 +306,9 @@
       "kind": "console",
       "status": 200,
       "title": "Script Console [Jenkins]",
-      "honeytokens": ["ops_ssh_key"],
+      "honeytokens": [
+        "ops_ssh_key"
+      ],
       "note": "Groovy 脚本控制台诱饵: 只回伪造输出, 不执行任何代码",
       "body": "<!DOCTYPE html><html><head><title>Script Console [Jenkins]</title></head><body><h1>Script Console</h1><p>Groovy 脚本可访问 Jenkins 内部 API 与文件系统 (Jenkins 2.375.3)</p><textarea name='script' rows='8' cols='80'>println \"whoami\".execute().text\nprintln new File('/var/jenkins_home/credentials.xml').text\nprintln Jenkins.instance.getComputers().collect{it.nodeName}</textarea><form method='POST' action='/jenkins/script'><button>Run</button></form><pre class='output'>Result: 伪造输出示例\njenkins\n&lt;com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl&gt;&lt;username&gt;deploy&lt;/username&gt;&lt;password&gt;{{db_password}}&lt;/password&gt;\n[prod-app-01, prod-app-02, build-agent-{{rand.int}}]\nssh-key: /var/jenkins_home/.ssh/id_rsa ({{api_token}})\ntrace {{instance.canary}}</pre></body></html>"
     },
@@ -278,7 +318,9 @@
       "kind": "dashboard",
       "status": 200,
       "title": "Grafana",
-      "honeytokens": ["ops_grafana_ds"],
+      "honeytokens": [
+        "ops_grafana_ds"
+      ],
       "note": "Grafana 风格入口(伪造)",
       "body": "<!DOCTYPE html><html><head><title>Grafana</title></head><body><h1>Grafana</h1><p class='version'>Grafana v9.5.2 (commit {{rand.hex}}) · 反代 {{server.server_header}}</p><p>登录: <code>{{grafana_user}} / {{admin_pass_hint}}</code></p><ul><li>数据源: prod-pg (postgres) / prometheus-prod / loki</li><li>仪表盘: 主机资源总览 / K8s 集群 / 数据库复制延迟 / 网关吞吐</li><li>告警规则: {{rand.int}} 条 (firing {{rand.int}})</li></ul><p>API: <a href='/grafana/api/datasources'>/grafana/api/datasources</a> | <a href='/grafana/api/health'>/grafana/api/health</a></p><p>trace {{instance.canary}}</p></body></html>"
     },
@@ -289,7 +331,10 @@
       "status": 200,
       "title": "settings.py",
       "content_type": "text/plain; charset=utf-8",
-      "honeytokens": ["ops_settings_py", "ops_env_secrets"],
+      "honeytokens": [
+        "ops_settings_py",
+        "ops_env_secrets"
+      ],
       "note": "源码直接可读",
       "body": "# {{branding.site_name}} Django 配置 (伪造)\n# trace {{instance.canary}}\nimport os\nBASE_DIR = '/opt/ops-platform'\nSECRET_KEY = '{{django_secret}}'\nDEBUG = True\nALLOWED_HOSTS = ['*']\nDATABASES = {\n    'default': {\n        'ENGINE': 'django.db.backends.postgresql',\n        'NAME': '{{db_name}}',\n        'USER': '{{db_user}}',\n        'PASSWORD': '{{db_password}}',\n        'HOST': '{{db_host}}',\n        'PORT': 5432,\n    }\n}\nCACHES = {'default': {'BACKEND': 'django_redis.cache.RedisCache', 'LOCATION': 'redis://{{redis_addr}}/1', 'OPTIONS': {'PASSWORD': '{{jwt_secret}}'}}}\nCELERY_BROKER_URL = '{{celery_broker}}'\nJWT_SIGNING_KEY = '{{jwt_secret}}'\nGRAFANA_API_KEY = '{{api_token}}'\nK8S_SA_TOKEN = '{{api_token}}'\nSSH_KEY_DIR = '/opt/ops-platform/keys'\nLOG_FILE = '{{server.log_path}}'\n"
     },
@@ -300,7 +345,10 @@
       "status": 200,
       "title": ".env",
       "content_type": "text/plain; charset=utf-8",
-      "honeytokens": ["ops_env_secrets", "ops_kubeconfig"],
+      "honeytokens": [
+        "ops_env_secrets",
+        "ops_kubeconfig"
+      ],
       "body": "DJANGO_SETTINGS_MODULE=ops.settings\nDJANGO_SECRET_KEY={{jwt_secret}}\nJWT_SIGNING_KEY={{jwt_secret}}\nDEBUG=true\nPOSTGRES_HOST={{db_host}}\nPOSTGRES_DB={{db_name}}\nPOSTGRES_USER={{db_user}}\nPOSTGRES_PASSWORD={{db_password}}\nREDIS_URL=redis://:{{jwt_secret}}@{{redis_addr}}/1\nK8S_API={{k8s_api}}\nK8S_SA_TOKEN={{api_token}}\nGRAFANA_API_KEY={{api_token}}\nJENKINS_USER={{jenkins_user}}\nJENKINS_TOKEN={{api_token}}\nSSH_KEY_PATH=/opt/ops-platform/keys/id_rsa\n# instance trace {{instance.canary}}\n"
     },
     {
@@ -310,7 +358,9 @@
       "status": 200,
       "title": "id_rsa",
       "content_type": "text/plain; charset=utf-8",
-      "honeytokens": ["ops_ssh_key"],
+      "honeytokens": [
+        "ops_ssh_key"
+      ],
       "note": "伪造运维私钥: 使用即产生高价值取证事件",
       "body": "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZWQyNTUx\nOQAAACD{{hex32}}{{hex32}}\nAAAKD{{hex32}}\n-----\n# 伪造诱饵私钥, 任何使用尝试都会被记录\n# 关联用户: {{deploy_user}} / {{bastion_user}}\n# 可登录范围: {{internal_hosts}}\n# instance trace {{instance.canary}}\n"
     },
@@ -397,7 +447,32 @@
   "payload_profile": "balanced",
   "tarpit_profile": "heavy",
   "detection": {
-    "path_playbook": ["/", "/robots.txt", "/.env", "/.git/config", "/.ssh/id_rsa", "/login", "/admin", "/jenkins/", "/jenkins/script", "/grafana/", "/api/v1/grafana/datasources", "/api/docs", "/api/v1/hosts", "/api/v1/hosts/detail", "/api/v1/internal/k8s", "/config/settings.py", "/api/v1/logs/download", "/api/v1/deploy/tasks"],
-    "noise_paths": ["/favicon.ico", "/static/css/ops.css", "/static/js/ops.js", "/api/v1/internal/health", "/robots.txt"]
+    "path_playbook": [
+      "/",
+      "/robots.txt",
+      "/.env",
+      "/.git/config",
+      "/.ssh/id_rsa",
+      "/login",
+      "/admin",
+      "/jenkins/",
+      "/jenkins/script",
+      "/grafana/",
+      "/api/v1/grafana/datasources",
+      "/api/docs",
+      "/api/v1/hosts",
+      "/api/v1/hosts/detail",
+      "/api/v1/internal/k8s",
+      "/config/settings.py",
+      "/api/v1/logs/download",
+      "/api/v1/deploy/tasks"
+    ],
+    "noise_paths": [
+      "/favicon.ico",
+      "/static/css/ops.css",
+      "/static/js/ops.js",
+      "/api/v1/internal/health",
+      "/robots.txt"
+    ]
   }
 }

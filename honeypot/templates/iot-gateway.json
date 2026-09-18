@@ -6,7 +6,15 @@
   "version": "1.0.0",
   "author": "CogTrap 内置模板库",
   "description": "模拟工业物联网边缘网关(Go + 嵌入式 Linux + Nginx, Modbus/MQTT 采集)。含设备清单、遥测数据、固件升级与网关配置导出, 保留 Go 生态特有的 /debug/pprof 调试端点与未验签固件升级面, 面向以工控设备为目标的攻击者。",
-  "tags": ["industrial", "iot", "gateway", "go", "modbus", "mqtt", "firmware"],
+  "tags": [
+    "industrial",
+    "iot",
+    "gateway",
+    "go",
+    "modbus",
+    "mqtt",
+    "firmware"
+  ],
   "branding": {
     "site_name": "示例工业物联网网关",
     "short_name": "示例 IoT",
@@ -21,7 +29,13 @@
   },
   "server": {
     "server_header": "nginx/1.18.0 (Ubuntu)",
-    "tech_stack": ["embedded linux (debian 11 arm64)", "nginx 1.18.0", "go 1.21.5", "sqlite 3.34.1", "mosquitto 2.0.11"],
+    "tech_stack": [
+      "embedded linux (debian 11 arm64)",
+      "nginx 1.18.0",
+      "go 1.21.5",
+      "sqlite 3.34.1",
+      "mosquitto 2.0.11"
+    ],
     "framework": "Go 1.21.5 (net/http + gin 1.9.1)",
     "binary": "/opt/gateway/bin/gw-agent",
     "config_path": "/opt/gateway/conf/gateway.json",
@@ -30,7 +44,11 @@
     "kernel": "Linux gw-edge-01 5.10.0-26-arm64"
   },
   "network": {
-    "internal_hosts": ["10.80.4.2", "10.80.5.77", "10.80.6.100"],
+    "internal_hosts": [
+      "10.80.4.2",
+      "10.80.5.77",
+      "10.80.6.100"
+    ],
     "db_host": "10.80.5.77",
     "db_name": "iot_telemetry",
     "db_user": "iot_rw",
@@ -112,8 +130,17 @@
       "tarpit_weight": 0,
       "honeytokens": [],
       "note": "网关本地管理首页",
-      "headers": [["X-Gateway-Serial", "{{serial_no}}"], ["X-Firmware-Version", "{{firmware_version}}"]],
-      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>{{branding.site_name}}</title><meta name='generator' content='gw-agent/{{branding.version_string}}'><link rel='stylesheet' href='/static/css/gw.css'></head><body><header><h1>{{branding.site_name}}</h1><span>SN {{serial_no}} · 固件 {{firmware_version}} (build {{build_id}})</span></header><nav><a href='/login'>登录</a> | <a href='/admin'>设备管理</a> | <a href='/api/docs'>接口文档</a> | <a href='/debug/pprof/'>调试</a></nav><main><section><h2>运行状态</h2><ul><li>在线设备 {{rand.int}} / 共 {{rand.int}}</li><li>采集点位 {{rand.int}} 个 ({{plc_protocol}} @ {{modbus_addr}})</li><li>上行 MQTT 主题 {{mqtt_topic}}</li><li>CPU {{rand.int:10-99}}% · 内存 {{rand.int:10-99}}% · 温度 {{rand.int}} C</li><li>运行时长 {{rand.int}} 小时</li></ul></section><section><h2>采集通道</h2><ul><li>Modbus TCP: {{plc_host}}:502 (16 从站)</li><li>MQTT: {{mqtt_broker}}</li><li>云平台: {{cloud_endpoint}}</li><li>MES 对接: {{mes_host}}:8080</li></ul></section><p class='ota'>固件升级: 当前 {{firmware_version}}, 可升级至 {{next_firmware}} · <a href='/api/v1/firmware/list'>查看固件包</a></p></main><footer><p>{{branding.footer}}</p><p>{{branding.copyright}} | 追踪编号 {{instance.canary}}</p></footer></body></html>"
+      "headers": [
+        [
+          "X-Gateway-Serial",
+          "{{serial_no}}"
+        ],
+        [
+          "X-Firmware-Version",
+          "{{firmware_version}}"
+        ]
+      ],
+      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>{{branding.site_name}}</title><meta name='generator' content='gw-agent/{{branding.version_string}}'><link rel='stylesheet' href='/static/css/gw.css'></head><body><header><h1>{{branding.site_name}}</h1><span>SN {{serial_no}} · 固件 {{firmware_version}} (build {{build_id}})</span></header><nav><a href='/login'>登录</a> | <a href='/admin'>设备管理</a> | <a href='/api/docs'>接口文档</a> | <a href='/debug/pprof/'>调试</a></nav><main><section><h2>运行状态</h2><ul><li>在线设备 {{rand.int}} / 共 {{rand.int}}</li><li>采集点位 {{rand.int}} 个 ({{plc_protocol}} @ {{modbus_addr}})</li><li>上行 MQTT 主题 {{mqtt_topic}}</li><li>CPU {{rand.int:10-99}}% · 内存 {{rand.int:10-99}}% · 温度 {{rand.int}} C</li><li>运行时长 {{rand.int}} 小时</li></ul></section><section><h2>采集通道</h2><ul><li>Modbus TCP: {{plc_host}}:502 (16 从站)</li><li>MQTT: {{mqtt_broker}}</li><li>云平台: {{cloud_endpoint}}</li><li>MES 对接: {{mes_host}}:8080</li></ul></section><p class='ota'>固件升级: 当前 {{firmware_version}}, 可升级至 {{next_firmware}} · <a href='/api/v1/firmware/list'>查看固件包</a></p></main><footer><p>{{branding.footer}}</p><p>{{branding.copyright}} "
     },
     {
       "path": "/login",
@@ -200,7 +227,9 @@
       "status": 200,
       "title": "固件列表",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["iot_firmware_key"],
+      "honeytokens": [
+        "iot_firmware_key"
+      ],
       "note": "固件签名私钥路径泄漏",
       "body": "{\n  \"code\": 0,\n  \"data\": {\n    \"current\": \"{{firmware_version}}\",\n    \"packages\": [\n      {\"version\": \"{{firmware_version}}\", \"file\": \"/opt/gateway/firmware/gw-{{firmware_version}}.bin\", \"size\": \"{{rand.int}} MB\", \"signature\": \"RSA2048 (SHA256)\", \"uploaded\": \"{{rand.date}}\"},\n      {\"version\": \"{{next_firmware}}\", \"file\": \"/opt/gateway/firmware/gw-{{next_firmware}}.bin\", \"size\": \"{{rand.int}} MB\", \"signature\": \"RSA2048 (SHA256)\", \"uploaded\": \"{{rand.date}}\"}\n    ],\n    \"signKeyPath\": \"/opt/gateway/conf/firmware_sign.key\",\n    \"signKeyValue\": \"{{app_key}}\",\n    \"verifySignature\": false,\n    \"note\": \"升级流程未强制校验签名 (联调开关未关闭)\",\n    \"updateUrl\": \"{{cloud_endpoint}}/firmware/check\"\n  },\n  \"trace\": \"{{instance.canary}}\"\n}"
     },
@@ -211,7 +240,9 @@
       "status": 200,
       "title": "固件升级",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["iot_firmware_key"],
+      "honeytokens": [
+        "iot_firmware_key"
+      ],
       "note": "假未验签固件上传",
       "body": "{\n  \"code\": 0,\n  \"message\": \"固件已接收, 等待重启生效\",\n  \"file\": \"{{rand.hex}}.bin\",\n  \"savedPath\": \"/opt/gateway/firmware/{{rand.hex}}.bin\",\n  \"signVerify\": \"skip (verifySignature=false)\",\n  \"flashing\": \"模拟写入 A/B 分区 (不会真正刷写)\",\n  \"reboot\": \"计划 60 秒后重启, 可用 /api/v1/firmware/rollback 回滚\",\n  \"signKey\": \"{{app_key}}\",\n  \"trace\": \"{{instance.canary}}\"\n}"
     },
@@ -233,7 +264,10 @@
       "status": 200,
       "title": "网关配置导出",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["iot_cloud_key", "iot_gateway_conf"],
+      "honeytokens": [
+        "iot_cloud_key",
+        "iot_gateway_conf"
+      ],
       "note": "未鉴权导出全部网关配置",
       "body": "{\n  \"code\": 0,\n  \"device\": {\"serial\": \"{{serial_no}}\", \"firmware\": \"{{firmware_version}}\", \"kernel\": \"{{server.kernel}}\"},\n  \"cloud\": {\"endpoint\": \"{{cloud_endpoint}}\", \"accessKeyId\": \"{{api_token}}\", \"accessKeySecret\": \"{{app_key}}\", \"deviceKey\": \"{{device_key}}\"},\n  \"mqtt\": {\"broker\": \"{{mqtt_broker}}\", \"username\": \"{{mqtt_user}}\", \"password\": \"{{db_password}}\", \"topic\": \"{{mqtt_topic}}\"},\n  \"modbus\": {\"host\": \"{{modbus_addr}}\", \"pollIntervalMs\": 5000},\n  \"upstream\": {\"mes\": \"{{mes_host}}:8080\"},\n  \"jwt\": {\"secret\": \"{{jwt_secret}}\"},\n  \"note\": \"接口未做鉴权, 任意来源可导出网关全部凭据\",\n  \"trace\": \"{{instance.canary}}\"\n}"
     },
@@ -244,7 +278,9 @@
       "status": 200,
       "title": "MQTT Broker 状态",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["iot_mqtt_token"],
+      "honeytokens": [
+        "iot_mqtt_token"
+      ],
       "body": "{\n  \"code\": 0,\n  \"data\": {\n    \"broker\": \"{{mqtt_broker}}\",\n    \"version\": \"mosquitto 2.0.11\",\n    \"allowAnonymous\": false,\n    \"clients\": {{rand.int}},\n    \"publishUser\": \"{{mqtt_user}}\",\n    \"publishPassword\": \"{{db_password}}\",\n    \"innerToken\": \"{{api_token}}\",\n    \"topics\": [\"{{mqtt_topic}}\", \"factory/line{{rand.int}}/command\", \"factory/+/alarm\"],\n    \"$SYS/broker/uptime\": \"{{rand.int}} seconds\"\n  },\n  \"trace\": \"{{instance.canary}}\"\n}"
     },
     {
@@ -263,7 +299,10 @@
       "status": 200,
       "title": "gateway.json",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["iot_gateway_conf", "iot_cloud_key"],
+      "honeytokens": [
+        "iot_gateway_conf",
+        "iot_cloud_key"
+      ],
       "note": "网关主配置泄漏",
       "body": "{\n  \"device\": {\"serial\": \"{{serial_no}}\", \"model\": \"GW-200\", \"firmware\": \"{{firmware_version}}\"},\n  \"server\": {\"listen\": \"0.0.0.0:{{instance.port}}\", \"adminUser\": \"{{admin_user}}\", \"adminPassword\": \"{{db_password}}\"},\n  \"jwt\": {\"secret\": \"{{jwt_secret}}\", \"expireHours\": 72},\n  \"cloud\": {\"endpoint\": \"{{cloud_endpoint}}\", \"accessKeyId\": \"{{api_token}}\", \"accessKeySecret\": \"{{app_key}}\", \"deviceKey\": \"{{device_key}}\"},\n  \"mqtt\": {\"broker\": \"{{mqtt_broker}}\", \"username\": \"{{mqtt_user}}\", \"password\": \"{{db_password}}\", \"topic\": \"{{mqtt_topic}}\"},\n  \"modbus\": {\"host\": \"{{plc_host}}\", \"port\": 502, \"timeoutMs\": 3000},\n  \"db\": {\"host\": \"{{db_host}}\", \"name\": \"{{db_name}}\", \"user\": \"{{db_user}}\", \"password\": \"{{db_password}}\"},\n  \"debug\": {\"pprofEnabled\": true, \"verifyFirmwareSign\": false},\n  \"_trace\": \"{{instance.canary}}\"\n}"
     },
@@ -274,7 +313,9 @@
       "status": 200,
       "title": "firmware_sign.key",
       "content_type": "text/plain; charset=utf-8",
-      "honeytokens": ["iot_firmware_key"],
+      "honeytokens": [
+        "iot_firmware_key"
+      ],
       "note": "伪造固件签名私钥: 使用会被记录",
       "body": "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA{{hex32}}{{hex32}}\n{{hex32}}{{hex32}}\n-----END RSA PRIVATE KEY-----\n# 伪造固件签名密钥, 不含任何真实密码学材料\n# 用途: 固件包签名校验 (verifyFirmwareSign=false)\n# 签名算法: SHA256withRSA · 密钥指纹 {{hex16}} · trace {{instance.canary}}\n"
     },
@@ -285,7 +326,9 @@
       "status": 200,
       "title": "id_rsa",
       "content_type": "text/plain; charset=utf-8",
-      "honeytokens": ["iot_ssh_key"],
+      "honeytokens": [
+        "iot_ssh_key"
+      ],
       "note": "伪造设备私钥",
       "body": "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZWQyNTUx\nOQAAACD{{hex32}}{{hex32}}\nAAAKD{{hex32}}\n-----\n# 伪造诱饵私钥, 任何使用尝试都会被记录\n# 用户: root / gwagent · 可登录: {{internal_hosts}}\n# instance trace {{instance.canary}}\n"
     },
@@ -338,7 +381,9 @@
       "status": 200,
       "title": "网关配置备份",
       "content_type": "application/gzip",
-      "honeytokens": ["iot_backup"],
+      "honeytokens": [
+        "iot_backup"
+      ],
       "tarpit_weight": 2,
       "body": "gateway_conf_20240912.tar.gz (伪造归档, 无真实文件内容)\n# instance trace {{instance.canary}}\n# 包含: /opt/gateway/conf/gateway.json /opt/gateway/conf/firmware_sign.key /root/.ssh/id_rsa\n# adminPassword={{db_password}}\n# mqtt password={{db_password}} broker={{mqtt_broker}}\n# cloud ak={{api_token}} sk={{app_key}}\n# db {{db_user}}@{{db_host}}/{{db_name}}\n# serial {{serial_no}} firmware {{firmware_version}} created {{instance.now}}\n"
     },
@@ -404,7 +449,30 @@
   "payload_profile": "balanced",
   "tarpit_profile": "standard",
   "detection": {
-    "path_playbook": ["/", "/login", "/config/gateway.json", "/.ssh/id_rsa", "/debug/pprof/", "/console/", "/metrics", "/api/docs", "/api/v1/devices/list", "/api/v1/devices/detail", "/api/v1/telemetry/latest", "/api/v1/config/dump", "/api/v1/mqtt/broker", "/api/v1/firmware/list", "/api/v1/firmware/download", "/backup/gateway_conf_20240912.tar.gz"],
-    "noise_paths": ["/static/css/gw.css", "/favicon.ico", "/static/js/gw.js", "/robots.txt", "/metrics"]
+    "path_playbook": [
+      "/",
+      "/login",
+      "/config/gateway.json",
+      "/.ssh/id_rsa",
+      "/debug/pprof/",
+      "/console/",
+      "/metrics",
+      "/api/docs",
+      "/api/v1/devices/list",
+      "/api/v1/devices/detail",
+      "/api/v1/telemetry/latest",
+      "/api/v1/config/dump",
+      "/api/v1/mqtt/broker",
+      "/api/v1/firmware/list",
+      "/api/v1/firmware/download",
+      "/backup/gateway_conf_20240912.tar.gz"
+    ],
+    "noise_paths": [
+      "/static/css/gw.css",
+      "/favicon.ico",
+      "/static/js/gw.js",
+      "/robots.txt",
+      "/metrics"
+    ]
   }
 }

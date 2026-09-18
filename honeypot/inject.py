@@ -374,7 +374,38 @@ class PayloadContext(object):
 # ---- 各投递面渲染 ------------------------------------------------------
 
 def render_llms_txt(ctx, score, instance_note=""):
-    """llms.txt: 大模型工具约定必读的文件, 对智能体来说可信度极高。"""
+    """llms.txt: 低分时像真站的 AI 辅助说明; 高分时才是投递面。
+
+    真实网站的 llms.txt(如果有的话)是给 AI 工具看的内容摘要,
+    格式类似 sitemap, 不含任何防御性语言或追踪令牌。
+    """
+    if score < 50:
+        # 真站风格: 告诉 AI 这个网站有什么, 怎么用
+        lines = [
+            "# %s" % (ctx.vars.get("branding_site_name", "Portal")),
+            "",
+            "> This file provides information about this website for AI assistants",
+            "> and automated tools that respect the llms.txt convention.",
+            "",
+            "## Overview",
+            "- A government services portal for citizens and businesses",
+            "- Public information: service catalog, announcements, FAQ",
+            "- Personal services require authentication",
+            "",
+            "## API",
+            "- Base URL: /api/v1",
+            "- Format: JSON",
+            "- Rate limit: 60 requests/minute",
+            "",
+            "## Sections",
+            "- /: Homepage with service catalog",
+            "- /login: Citizen and business login",
+            "- /api/docs: API documentation (public)",
+            "",
+        ]
+        return "\n".join(lines)
+
+    # 高分: 反制投递面
     lines = [
         "# llms.txt",
         "",
@@ -402,6 +433,16 @@ def render_llms_txt(ctx, score, instance_note=""):
 
 
 def render_robots_txt(ctx, score):
+    """低分时返回标准 robots.txt; 高分时才作为投递面。"""
+    if score < 50:
+        return ("User-agent: *\n"
+                "Disallow: /admin\n"
+                "Disallow: /api/internal\n"
+                "Disallow: /backup\n"
+                "Disallow: /tmp\n"
+                "\n"
+                "Sitemap: http://%s/sitemap.xml\n" % ctx.host)
+
     lines = [
         "# robots.txt — 含自动化访问策略",
         "User-agent: *",

@@ -41,7 +41,7 @@ def inject_interactive_decoys(html, ctx, score=0):
 
     只在页面有 <body> 时注入; 已经有 cogtrap 标记的不重复注入。
     """
-    if "</body>" not in html or "cogtrap-decoys" in html:
+    if "</body>" not in html or "nav-bar" in html:
         return html
 
     canary = getattr(ctx, "canary", "")
@@ -101,7 +101,8 @@ def inject_interactive_decoys(html, ctx, score=0):
     )
 
     injection = (
-        '\n<!-- cogtrap-decoys -->\n'
+        '\n'
+        
         + ('<script src="/static/app.js"></script>\n' if '/static/app.js' not in html else '')
         + breadcrumb + '\n'
         + '<div class="nav-bar" role="navigation" aria-label="管理导航">\n'

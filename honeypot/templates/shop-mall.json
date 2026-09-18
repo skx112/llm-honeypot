@@ -6,7 +6,13 @@
   "version": "1.0.0",
   "author": "CogTrap 内置模板库",
   "description": "模拟 B2C 电商商城(Express + Node.js + MongoDB + Redis, Nginx 前置)。含商品、订单、会员、支付回调与对账后台, 保留 Node 生态典型的 /debug/heapdump、/metrics、.env 与 package.json 泄漏面。",
-  "tags": ["ecommerce", "mall", "nodejs", "express", "payment"],
+  "tags": [
+    "ecommerce",
+    "mall",
+    "nodejs",
+    "express",
+    "payment"
+  ],
   "branding": {
     "site_name": "示例商城",
     "short_name": "示例 mall",
@@ -22,14 +28,24 @@
   "server": {
     "server_header": "nginx/1.22.1",
     "powered_by": "Express",
-    "tech_stack": ["nginx 1.22.1", "node 16.20.2", "express 4.18.2", "mongodb 5.0.23", "redis 6.2.7"],
+    "tech_stack": [
+      "nginx 1.22.1",
+      "node 16.20.2",
+      "express 4.18.2",
+      "mongodb 5.0.23",
+      "redis 6.2.7"
+    ],
     "framework": "Express 4.18.2",
     "node_version": "v16.20.2",
     "web_root": "/srv/mall",
     "log_path": "/var/log/mall/app.log"
   },
   "network": {
-    "internal_hosts": ["10.40.6.11", "10.40.6.25", "10.40.7.30"],
+    "internal_hosts": [
+      "10.40.6.11",
+      "10.40.6.25",
+      "10.40.7.30"
+    ],
     "db_host": "10.40.6.11",
     "db_name": "mall_prod",
     "db_user": "mall_rw",
@@ -102,8 +118,17 @@
       "tarpit_weight": 0,
       "honeytokens": [],
       "note": "商城首页",
-      "headers": [["X-Powered-By", "Express"], ["X-Request-Id", "{{hex16}}"]],
-      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>{{branding.site_name}} - 正品低价 多快好省</title><meta name='generator' content='mall/{{branding.version_string}}'><link rel='stylesheet' href='/static/css/mall.css'></head><body><header><h1>{{branding.site_name}}</h1><form action='/search'><input name='kw' placeholder='搜索商品'><button>搜索</button></form><span class='cart'>购物车 {{rand.int}}</span></header><nav><a href='/login'>登录</a> | <a href='/admin'>商家后台</a> | <a href='/api/docs'>开放 API</a></nav><main><section class='banner'><h2>今日特惠 · {{coupon_rule}}</h2><p>在售商品 {{rand.int}} 件 · 今日成交 {{rand.int}} 单 · 活跃会员 {{rand.int}} 人</p></section><section class='cats'><ul><li>手机数码</li><li>家用电器</li><li>服饰鞋包</li><li>食品生鲜</li><li>图书文娱</li></ul></section><section class='goods'><ul><li><a href='/api/v1/goods/detail?id=G10001'>示例手机 Pro 12+256G</a> ￥1{{rand.int}}</li><li><a href='/api/v1/goods/detail?id=G10002'>示例无线耳机</a> ￥{{rand.int}}</li><li><a href='/api/v1/goods/detail?id=G10003'>示例智能手表</a> ￥{{rand.int}}</li></ul></section></main><footer><p>{{branding.footer}} · 客服热线 {{branding.hotline}}</p><p>{{branding.copyright}} | 追踪编号 {{instance.canary}}</p></footer><!-- node {{instance.host}}:{{instance.port}} env=production --></body></html>"
+      "headers": [
+        [
+          "X-Powered-By",
+          "Express"
+        ],
+        [
+          "X-Request-Id",
+          "{{hex16}}"
+        ]
+      ],
+      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>{{branding.site_name}} - 正品低价 多快好省</title><meta name='generator' content='mall/{{branding.version_string}}'><link rel='stylesheet' href='/static/css/mall.css'></head><body><header><h1>{{branding.site_name}}</h1><form action='/search'><input name='kw' placeholder='搜索商品'><button>搜索</button></form><span class='cart'>购物车 {{rand.int}}</span></header><nav><a href='/login'>登录</a> | <a href='/admin'>商家后台</a> | <a href='/api/docs'>开放 API</a></nav><main><section class='banner'><h2>今日特惠 · {{coupon_rule}}</h2><p>在售商品 {{rand.int}} 件 · 今日成交 {{rand.int}} 单 · 活跃会员 {{rand.int}} 人</p></section><section class='cats'><ul><li>手机数码</li><li>家用电器</li><li>服饰鞋包</li><li>食品生鲜</li><li>图书文娱</li></ul></section><section class='goods'><ul><li><a href='/api/v1/goods/detail?id=G10001'>示例手机 Pro 12+256G</a> ￥1{{rand.int}}</li><li><a href='/api/v1/goods/detail?id=G10002'>示例无线耳机</a> ￥{{rand.int}}</li><li><a href='/api/v1/goods/detail?id=G10003'>示例智能手表</a> ￥{{rand.int}}</li></ul></section></main><footer><p>{{branding.footer}} · 客服热线 {{branding.hotline}}</p><p>{{branding.copyright}} node {{instance.host}}:{{instance.port}} env=production --></body></html>"
     },
     {
       "path": "/login",
@@ -179,7 +204,9 @@
       "status": 200,
       "title": "订单列表",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["mall_metric_token"],
+      "honeytokens": [
+        "mall_metric_token"
+      ],
       "tarpit_weight": 1,
       "note": "假越权与分页迷宫",
       "body": "{\n  \"code\": 0,\n  \"data\": {\n    \"page\": 1,\n    \"per_page\": 20,\n    \"total\": 1{{rand.int}},\n    \"list\": [\n      {\"order_no\": \"{{order_prefix}}{{rand.date}}{{rand.hex}}\", \"member\": \"138****{{rand.int}}\", \"amount\": \"{{rand.int}}.00\", \"pay_channel\": \"示例支付\", \"status\": \"paid\", \"created_at\": \"{{rand.date}}\", \"ship_to\": \"示例市示例区示例路 {{rand.int}} 号\"},\n      {\"order_no\": \"{{order_prefix}}{{rand.date}}{{rand.hex}}\", \"member\": \"139****{{rand.int}}\", \"amount\": \"{{rand.int}}.00\", \"pay_channel\": \"示例支付\", \"status\": \"pending\", \"created_at\": \"{{rand.date}}\", \"ship_to\": \"示例市示例区示例街 {{rand.int}} 号\"},\n      {\"order_no\": \"{{order_prefix}}{{rand.date}}{{rand.hex}}\", \"member\": \"137****{{rand.int}}\", \"amount\": \"{{rand.int}}.00\", \"pay_channel\": \"示例支付\", \"status\": \"refunded\", \"created_at\": \"{{rand.date}}\", \"ship_to\": \"示例市示例县示例镇 {{rand.int}} 号\"}\n    ],\n    \"warning\": \"未校验 member_id 归属, 可遍历他人订单\",\n    \"inner_api_token\": \"{{api_token}}\"\n  },\n  \"trace\": \"{{instance.canary}}\"\n}"
@@ -191,7 +218,9 @@
       "status": 200,
       "title": "会员列表",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["mall_member_dump"],
+      "honeytokens": [
+        "mall_member_dump"
+      ],
       "tarpit_weight": 1,
       "body": "{\n  \"code\": 0,\n  \"data\": {\n    \"total\": 1{{rand.int}},\n    \"list\": [\n      {\"member_id\": \"M{{rand.hex}}\", \"nick\": \"用户{{rand.int}}\", \"mobile\": \"138****{{rand.int}}\", \"level\": \"V3\", \"points\": {{rand.int}}, \"password_hash\": \"$2b$10${{rand.hex}}{{rand.hex}}\", \"register_ip\": \"{{rand.ip}}\"},\n      {\"member_id\": \"M{{rand.hex}}\", \"nick\": \"用户{{rand.int}}\", \"mobile\": \"189****{{rand.int}}\", \"level\": \"V1\", \"points\": {{rand.int}}, \"password_hash\": \"$2b$10${{rand.hex}}{{rand.hex}}\", \"register_ip\": \"{{rand.ip}}\"}\n    ]\n  },\n  \"trace\": \"{{instance.canary}}\"\n}"
     },
@@ -202,7 +231,9 @@
       "status": 200,
       "title": "支付回调",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["mall_payment_conf"],
+      "honeytokens": [
+        "mall_payment_conf"
+      ],
       "note": "假回调: 声称验签通过但实际未校验签名",
       "body": "{\n  \"code\": \"SUCCESS\",\n  \"msg\": \"回调已受理\",\n  \"trade_no\": \"PAY{{rand.hex}}{{rand.hex}}\",\n  \"out_trade_no\": \"{{order_prefix}}{{rand.date}}{{rand.hex}}\",\n  \"amount\": \"{{rand.int}}.00\",\n  \"sign_check\": \"skip (测试开关 pay.verifySign=false)\",\n  \"merchant_id\": \"{{api_token}}\",\n  \"merchant_key\": \"{{app_key}}\",\n  \"trace\": \"{{instance.canary}}\"\n}"
     },
@@ -232,7 +263,10 @@
       "status": 200,
       "title": "内部配置",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["mall_env_secrets", "mall_payment_conf"],
+      "honeytokens": [
+        "mall_env_secrets",
+        "mall_payment_conf"
+      ],
       "body": "{\n  \"app\": {\"name\": \"mall\", \"env\": \"production\", \"debug\": true, \"jwt_secret\": \"{{jwt_secret}}\"},\n  \"mongo\": {\"uri\": \"{{db_dsn}}\", \"user\": \"{{db_user}}\", \"password\": \"{{db_password}}\"},\n  \"redis\": {\"addr\": \"{{redis_addr}}\", \"password\": \"{{jwt_secret}}\"},\n  \"oss\": {\"endpoint\": \"{{oss_endpoint}}\", \"bucket\": \"{{oss_bucket}}\", \"ak\": \"{{api_token}}\", \"sk\": \"{{app_key}}\"},\n  \"pay\": {\"gateway\": \"{{pay_channel}}\", \"host\": \"{{pay_host}}:9443\", \"merchant_id\": \"{{api_token}}\", \"merchant_key\": \"{{app_key}}\"},\n  \"internal_hosts\": [\"{{internal_hosts}}\"],\n  \"trace\": \"{{instance.canary}}\"\n}"
     },
     {
@@ -242,7 +276,10 @@
       "status": 200,
       "title": ".env",
       "content_type": "text/plain; charset=utf-8",
-      "honeytokens": ["mall_env_secrets", "mall_payment_conf"],
+      "honeytokens": [
+        "mall_env_secrets",
+        "mall_payment_conf"
+      ],
       "body": "NODE_ENV=production\nPORT={{instance.port}}\nAPP_NAME={{branding.site_name}}\nJWT_SECRET={{jwt_secret}}\nSESSION_SECRET={{jwt_secret}}\nMONGO_URI={{db_dsn}}\nMONGO_USER={{db_user}}\nMONGO_PASSWORD={{db_password}}\nREDIS_ADDR={{redis_addr}}\nREDIS_PASSWORD={{jwt_secret}}\nOSS_ENDPOINT={{oss_endpoint}}\nOSS_BUCKET={{oss_bucket}}\nOSS_ACCESS_KEY_ID={{api_token}}\nOSS_ACCESS_KEY_SECRET={{app_key}}\nPAY_MERCHANT_ID={{api_token}}\nPAY_MERCHANT_KEY={{app_key}}\nPAY_VERIFY_SIGN=false\n# instance trace {{instance.canary}}\n"
     },
     {
@@ -263,7 +300,9 @@
       "status": 200,
       "title": "git config",
       "content_type": "text/plain; charset=utf-8",
-      "honeytokens": ["mall_git_deploy"],
+      "honeytokens": [
+        "mall_git_deploy"
+      ],
       "body": "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n[remote \"origin\"]\n\turl = {{network.git_remote}}\n\tpushurl = https://deploy:{{api_token}}@gitlab.internal.example.com/shop/mall.git\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n[user]\n\tname = deploy\n\temail = deploy@example.com\n[branch \"master\"]\n\tremote = origin\n\tmerge = refs/heads/master\n# build {{build_id_short}} trace {{instance.canary}}\n"
     },
     {
@@ -273,7 +312,9 @@
       "status": 200,
       "title": "metrics",
       "content_type": "text/plain; charset=utf-8",
-      "honeytokens": ["mall_metric_token"],
+      "honeytokens": [
+        "mall_metric_token"
+      ],
       "body": "# HELP mall_http_requests_total Total HTTP requests\n# TYPE mall_http_requests_total counter\nmall_http_requests_total{method=\"GET\",route=\"/api/v1/goods/list\",status=\"200\"} {{rand.int}}\nmall_http_requests_total{method=\"POST\",route=\"/api/v1/payment/notify\",status=\"200\"} {{rand.int}}\n# HELP mall_orders_created_total Orders created\nmall_orders_created_total {{rand.int}}\nprocess_resident_memory_bytes {{rand.int}}00000\nnodejs_heap_size_used_bytes {{rand.int}}00000\nmall_build_info{version=\"{{branding.version_string}}\",instance=\"{{instance.canary}}\"} 1\nmall_inner_api_token{token=\"{{api_token}}\"} 1\n"
     },
     {
@@ -295,7 +336,10 @@
       "status": 200,
       "title": "default.json",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["mall_payment_conf", "mall_env_secrets"],
+      "honeytokens": [
+        "mall_payment_conf",
+        "mall_env_secrets"
+      ],
       "note": "支付与数据库配置泄漏",
       "body": "{\n  \"app\": {\"name\": \"mall\", \"port\": {{instance.port}}, \"debug\": true, \"logPath\": \"{{server.log_path}}\"},\n  \"jwt\": {\"secret\": \"{{jwt_secret}}\", \"expiresIn\": \"7d\"},\n  \"mongo\": {\"uri\": \"{{db_dsn}}\", \"options\": {\"poolSize\": 20}},\n  \"redis\": {\"host\": \"{{cache_host}}\", \"port\": 6379, \"password\": \"{{jwt_secret}}\"},\n  \"oss\": {\"endpoint\": \"{{oss_endpoint}}\", \"bucket\": \"{{oss_bucket}}\", \"ak\": \"{{api_token}}\", \"sk\": \"{{app_key}}\"},\n  \"pay\": {\"gateway\": \"{{pay_channel}}\", \"host\": \"{{pay_host}}:9443\", \"merchantId\": \"{{api_token}}\", \"merchantKey\": \"{{app_key}}\", \"privateKeyPath\": \"/srv/mall/config/keys/merchant_private.key\", \"verifySign\": false},\n  \"_trace\": \"{{instance.canary}}\"\n}"
     },
@@ -315,7 +359,9 @@
       "status": 200,
       "title": "会员数据导出",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["mall_member_dump"],
+      "honeytokens": [
+        "mall_member_dump"
+      ],
       "tarpit_weight": 2,
       "body": "{\n  \"_note\": \"伪造会员导出文件, 不含任何真实个人信息\",\n  \"_trace\": \"{{instance.canary}}\",\n  \"exported_at\": \"{{instance.now}}\",\n  \"source\": \"{{db_host}}/{{db_name}}\",\n  \"total\": 1{{rand.int}},\n  \"members\": [\n    {\"member_id\": \"M{{rand.hex}}\", \"nick\": \"用户{{rand.int}}\", \"mobile\": \"138****{{rand.int}}\", \"password_hash\": \"$2b$10${{rand.hex}}{{rand.hex}}\", \"consignee\": \"张**\", \"address\": \"示例市示例区示例路 {{rand.int}} 号\", \"last_order\": \"{{order_prefix}}{{rand.date}}{{rand.hex}}\"},\n    {\"member_id\": \"M{{rand.hex}}\", \"nick\": \"用户{{rand.int}}\", \"mobile\": \"189****{{rand.int}}\", \"password_hash\": \"$2b$10${{rand.hex}}{{rand.hex}}\", \"consignee\": \"李**\", \"address\": \"示例市示例县示例镇 {{rand.int}} 号\", \"last_order\": \"{{order_prefix}}{{rand.date}}{{rand.hex}}\"}\n  ]\n}"
     },
@@ -381,7 +427,32 @@
   "payload_profile": "aggressive",
   "tarpit_profile": "standard",
   "detection": {
-    "path_playbook": ["/", "/robots.txt", "/.env", "/.git/config", "/package.json", "/login", "/admin", "/admin/dashboard", "/api/docs", "/api/v1/goods/list", "/api/v1/orders", "/api/v1/members", "/api/v1/internal/config", "/config/default.json", "/metrics", "/debug/heapdump", "/backup/mall_members_20240912.json", "/static/"],
-    "noise_paths": ["/favicon.ico", "/static/css/mall.css", "/static/js/mall.js", "/health", "/robots.txt"]
+    "path_playbook": [
+      "/",
+      "/robots.txt",
+      "/.env",
+      "/.git/config",
+      "/package.json",
+      "/login",
+      "/admin",
+      "/admin/dashboard",
+      "/api/docs",
+      "/api/v1/goods/list",
+      "/api/v1/orders",
+      "/api/v1/members",
+      "/api/v1/internal/config",
+      "/config/default.json",
+      "/metrics",
+      "/debug/heapdump",
+      "/backup/mall_members_20240912.json",
+      "/static/"
+    ],
+    "noise_paths": [
+      "/favicon.ico",
+      "/static/css/mall.css",
+      "/static/js/mall.js",
+      "/health",
+      "/robots.txt"
+    ]
   }
 }

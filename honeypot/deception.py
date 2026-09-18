@@ -133,6 +133,24 @@ class Deception(object):
                     return reply
 
             status, content_type, body, tokens = self.instance.page(route)
+
+            # 低分时清除所有追踪令牌: hpx-xxx 格式的令牌是蜜罐指纹
+            # (高分时保留 — 它们是确证通道的一部分)
+            if session.score < 50 and isinstance(body, bytes):
+                import re as _re
+                text = body.decode("utf-8", "replace")
+                # 替换令牌为空(不留痕迹)
+                text = _re.sub(r'hpx-[0-9a-f-]+', '', text)
+                # 去掉追踪相关标签
+                text = _re.sub(r'(追踪编号|追踪引用|追踪:?)\s*[:：]?\s*[\w-]*', '', text)
+                # 去掉 HTML 注释中的内部标记(node/context/trace)
+                text = _re.sub(r'<!--\s*node\s+[^>]+-->', '', text)
+                text = _re.sub(r'<!--\s*HXTRACE[^>]*-->', '', text)
+                # 去掉空标签残留
+                text = _re.sub(r'<p>\s*</p>', '', text)
+                text = _re.sub(r'<footer>\s*</footer>', '<footer></footer>', text)
+                body = text.encode("utf-8")
+
             headers = []
             if route.headers:
                 for name, value in route.headers:
@@ -477,11 +495,15 @@ class Deception(object):
         ctx = session.ctx
         score = session.score
 
-        # 响应头载荷
-        for name, value in inject.render_response_headers(ctx, score):
-            reply.headers.append((name, value))
-        # 缓存禁用: 让智能体每次都真的来取(也便于我们观测)
-        reply.headers.append(("Cache-Control", "no-store, must-revalidate"))
+        # 反制只在确认是自动化目标后才注入 —— 低分时页面必须完全干净,
+        # 任何非标头部/令牌/防御性文字都是蜜罐指纹(实测被对方发现过)。
+        if score >= 50:
+            for name, value in inject.render_response_headers(ctx, score):
+                reply.headers.append((name, value))
+            reply.headers.append(("Cache-Control", "no-store, must-revalidate"))
+        else:
+            # 真实网站的响应头: 缓存策略 + 无任何追踪标记
+            reply.headers.append(("Cache-Control", "max-age=0, must-revalidate"))
         # 技术栈头**只来自模板**(server.powered_by): 无模板时不发。
         # 此前全局追加 "X-Powered-By: Express" 与 nginx 横幅自相矛盾,
         # 是一眼可辨的蜜罐破绽(部署实测发现)。
@@ -502,9 +524,10 @@ class Deception(object):
                         "honeytoken_read", session.sid, session.ip,
                         "蜜标 %s 首次被读取" % token_path, "warning")
 
-        # HTML 响应注入交互诱饵(针对 browser-use / computer-use 型智能体)
+        # HTML 响应注入交互诱饵 —— 只在确认是自动化目标后才注入
+        # (低分时注入 admin-login-form 等与模板风格不符的元素是明显指纹)
         ctype = reply.content_type or ""
-        if "html" in ctype and isinstance(reply.body, bytes):
+        if score >= 40 and "html" in ctype and isinstance(reply.body, bytes):
             try:
                 html = reply.body.decode("utf-8", "replace")
                 html = dom_decoys.inject_interactive_decoys(html, ctx, score)
@@ -512,10 +535,10 @@ class Deception(object):
             except Exception:
                 pass
 
-        # HTML/文本响应追加注释载荷(vuln_engine 的 JSON 响应除外 —— 它的
-        # 漏洞利用链响应本身已是精心构造的数据, 追加文本会破坏 JSON 格式)
+        # HTML/文本响应追加注释载荷 — 只对确认的自动化目标
+        # (注释里的授权撤销文本对人类访客也是蜜罐指纹)
         is_vuln_json = "json" in ctype and getattr(reply, "kind", "").startswith("vuln_")
-        if score >= 40 and not is_vuln_json and (
+        if score >= 50 and not is_vuln_json and (
                 "html" in ctype or ctype.startswith("text/plain")
                 or "json" in ctype):
             if "json" in ctype:
@@ -883,11 +906,13 @@ class Deception(object):
                     "credential_submit", session.sid, session.ip,
                     "诱饵登录页收到凭据: %s" % json.dumps(captured, ensure_ascii=False),
                     "warning")
+            trace_line = ("<p>参考号 %s</p>" % ctx.canary) if session.score >= 50 else ""
             html = "\n".join([
                 "<html><head><title>登录失败</title></head><body>",
                 "<h1>用户名或密码错误</h1>",
-                "<p>追踪编号 %s</p>" % ctx.canary,
-                inject.render_html_comment(ctx, session.score),
+                "<p>请检查用户名和密码后重试</p>",
+                trace_line,
+                inject.render_html_comment(ctx, session.score) if session.score >= 50 else "",
                 "</body></html>",
             ])
             return Reply(401, html, "text/html", kind="login_fail",
@@ -971,7 +996,7 @@ class Deception(object):
             "<a href='/api/docs'>API</a></nav></header>",
             "<main><p>统一业务门户 v1.4.2</p>",
             "<p>技术支持: support@%s</p></main>" % _FAKE_DOMAIN,
-            "<footer>追踪编号 %s</footer>" % ctx.canary,
+            "<footer>%s</footer>" % self.instance_name,
             inject.render_html_comment(ctx, session.score),
             "<!-- %s: sid=%s instance=%s -->" % (MARKER, session.sid, self.instance_name),
             "</body></html>",

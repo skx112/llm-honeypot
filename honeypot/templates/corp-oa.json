@@ -6,7 +6,13 @@
   "version": "1.0.0",
   "author": "CogTrap 内置模板库",
   "description": "模拟企业 OA / 协同办公系统(ThinkPHP 5.0 + PHP 7.4 + MySQL, Nginx 前置)。含待办流程、员工通讯录、工资条、文档中心与附件上传, 并保留 ThinkPHP 5.x 时代经典的 index.php 入口与 Runtime 日志泄漏面。",
-  "tags": ["oa", "enterprise", "thinkphp", "php", "workflow"],
+  "tags": [
+    "oa",
+    "enterprise",
+    "thinkphp",
+    "php",
+    "workflow"
+  ],
   "branding": {
     "site_name": "示例科技协同办公平台",
     "short_name": "示例OA",
@@ -22,7 +28,13 @@
   "server": {
     "server_header": "nginx/1.20.2",
     "powered_by": "PHP/7.4.33",
-    "tech_stack": ["nginx 1.20.2", "php 7.4.33", "thinkphp 5.0.24", "mysql 5.7.42", "redis 6.2.7"],
+    "tech_stack": [
+      "nginx 1.20.2",
+      "php 7.4.33",
+      "thinkphp 5.0.24",
+      "mysql 5.7.42",
+      "redis 6.2.7"
+    ],
     "framework": "ThinkPHP 5.0.24",
     "web_root": "/data/www/oa",
     "runtime_path": "/data/www/oa/Application/Runtime",
@@ -30,7 +42,11 @@
     "log_path": "/data/www/oa/Application/Runtime/Logs"
   },
   "network": {
-    "internal_hosts": ["10.15.8.21", "10.15.8.36", "10.15.9.5"],
+    "internal_hosts": [
+      "10.15.8.21",
+      "10.15.8.36",
+      "10.15.9.5"
+    ],
     "db_host": "10.15.8.21",
     "db_name": "oa_db",
     "db_user": "oa_rw",
@@ -103,8 +119,17 @@
       "tarpit_weight": 0,
       "honeytokens": [],
       "note": "OA 门户首页",
-      "headers": [["X-Powered-By", "PHP/7.4.33"], ["Set-Cookie", "PHPSESSID={{hex16}}; path=/; HttpOnly"]],
-      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>{{branding.site_name}}</title><meta name='generator' content='ThinkPHP {{server.framework}}'><link rel='stylesheet' href='/Public/static/oa.css'></head><body><div class='wrap'><header><h1>{{branding.site_name}}</h1><span>v{{branding.version_string}}</span></header><nav><a href='/login'>登录</a> | <a href='/index.php'>入口</a> | <a href='/admin'>管理后台</a> | <a href='/api/docs'>接口文档</a></nav><section><h2>通知公告</h2><ul><li>关于 {{rand.date}} 系统升级维护的通知</li><li>第三季度考勤统计已生成, 请各部门 {{rand.date}} 前确认</li><li>新员工入职流程线上化说明</li></ul></section><section><h2>待办速览</h2><p>待办 {{rand.int}} 条 · 待阅 {{rand.int}} 条 · 已办 {{rand.int}} 条</p></section><footer><p>{{branding.footer}}</p><p>{{branding.copyright}} | 追踪编号 {{instance.canary}}</p></footer></div><!-- 部署节点 {{instance.host}}:{{instance.port}} runtime={{server.runtime_path}} --></body></html>"
+      "headers": [
+        [
+          "X-Powered-By",
+          "PHP/7.4.33"
+        ],
+        [
+          "Set-Cookie",
+          "PHPSESSID={{hex16}}; path=/; HttpOnly"
+        ]
+      ],
+      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>{{branding.site_name}}</title><meta name='generator' content='ThinkPHP {{server.framework}}'><link rel='stylesheet' href='/Public/static/oa.css'></head><body><div class='wrap'><header><h1>{{branding.site_name}}</h1><span>v{{branding.version_string}}</span></header><nav><a href='/login'>登录</a> | <a href='/index.php'>入口</a> | <a href='/admin'>管理后台</a> | <a href='/api/docs'>接口文档</a></nav><section><h2>通知公告</h2><ul><li>关于 {{rand.date}} 系统升级维护的通知</li><li>第三季度考勤统计已生成, 请各部门 {{rand.date}} 前确认</li><li>新员工入职流程线上化说明</li></ul></section><section><h2>待办速览</h2><p>待办 {{rand.int}} 条 · 待阅 {{rand.int}} 条 · 已办 {{rand.int}} 条</p></section><footer><p>{{branding.footer}}</p><p>{{branding.copyright}} 部署节点 {{instance.host}}:{{instance.port}} runtime={{server.runtime_path}} --></body></html>"
     },
     {
       "path": "/index.php",
@@ -177,7 +202,9 @@
       "status": 200,
       "title": "员工通讯录",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["oa_cloud_key"],
+      "honeytokens": [
+        "oa_cloud_key"
+      ],
       "tarpit_weight": 1,
       "note": "假 SQL 注入点(参数 dept_id)",
       "body": "{\n  \"code\": 0,\n  \"msg\": \"ok\",\n  \"data\": {\n    \"page\": 1,\n    \"page_size\": 20,\n    \"total\": 1{{rand.int}},\n    \"list\": [\n      {\"user_id\": \"{{rand.int}}\", \"job_no\": \"E{{rand.int}}\", \"name\": \"张**\", \"dept\": \"信息技术部\", \"title\": \"高级工程师\", \"mobile\": \"138****{{rand.int}}\", \"email\": \"zhang**@example.com\", \"leader\": \"李**\", \"entry_date\": \"{{rand.date}}\"},\n      {\"user_id\": \"{{rand.int}}\", \"job_no\": \"E{{rand.int}}\", \"name\": \"王**\", \"dept\": \"财务部\", \"title\": \"财务主管\", \"mobile\": \"139****{{rand.int}}\", \"email\": \"wang**@example.com\", \"leader\": \"赵**\", \"entry_date\": \"{{rand.date}}\"},\n      {\"user_id\": \"{{rand.int}}\", \"job_no\": \"E{{rand.int}}\", \"name\": \"陈**\", \"dept\": \"人力资源部\", \"title\": \"HRBP\", \"mobile\": \"137****{{rand.int}}\", \"email\": \"chen**@example.com\", \"leader\": \"赵**\", \"entry_date\": \"{{rand.date}}\"}\n    ],\n    \"inner_api_token\": \"{{api_token}}\"\n  },\n  \"trace\": \"{{instance.canary}}\"\n}"
@@ -200,7 +227,9 @@
       "status": 200,
       "title": "流程审批",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["oa_conf_php"],
+      "honeytokens": [
+        "oa_conf_php"
+      ],
       "note": "假未鉴权审批接口",
       "body": "{\n  \"code\": 0,\n  \"msg\": \"审批已提交\",\n  \"flow_id\": \"WF{{rand.hex}}\",\n  \"operator\": \"anonymous\",\n  \"warning\": \"未校验登录态与会签权限, 已直接写入审批链\",\n  \"next_node\": \"归档\",\n  \"audit_log\": \"{{server.log_path}}/Admin/{{instance.now}}.log\",\n  \"trace\": \"{{instance.canary}}\"\n}"
     },
@@ -243,7 +272,10 @@
       "status": 200,
       "title": "系统配置",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["oa_cloud_key", "oa_env_secrets"],
+      "honeytokens": [
+        "oa_cloud_key",
+        "oa_env_secrets"
+      ],
       "body": "{\n  \"app\": {\"name\": \"oa\", \"debug\": true, \"app_key\": \"{{app_key}}\", \"jwt_secret\": \"{{jwt_secret}}\"},\n  \"database\": {\"host\": \"{{db_host}}\", \"name\": \"{{db_name}}\", \"user\": \"{{db_user}}\", \"password\": \"{{db_password}}\"},\n  \"oss\": {\"endpoint\": \"{{oss_endpoint}}\", \"bucket\": \"{{oss_bucket}}\", \"access_key_id\": \"{{api_token}}\", \"access_key_secret\": \"{{app_key}}\"},\n  \"sms\": {\"provider\": \"示例云短信(演示)\", \"access_key\": \"{{api_token}}\", \"sign\": \"示例科技\"},\n  \"internal_hosts\": [\"{{internal_hosts}}\"],\n  \"trace\": \"{{instance.canary}}\"\n}"
     },
     {
@@ -261,7 +293,9 @@
       "kind": "debug",
       "status": 200,
       "title": "phpinfo()",
-      "honeytokens": ["oa_phpinfo"],
+      "honeytokens": [
+        "oa_phpinfo"
+      ],
       "body": "<!DOCTYPE html><html><head><title>phpinfo()</title></head><body><h1>PHP Version 7.4.33</h1><table border='1'><tr><td>System</td><td>Linux oa-web01 5.15.0-91-generic</td></tr><tr><td>Server API</td><td>FPM/FastCGI</td></tr><tr><td>DOCUMENT_ROOT</td><td>{{server.web_root}}/public</td></tr><tr><td>APP_DEBUG</td><td>true</td></tr><tr><td>APP_KEY</td><td>{{app_key}}</td></tr><tr><td>DB_PASSWORD</td><td>{{db_password}}</td></tr><tr><td>INNER_API_TOKEN</td><td>{{api_token}}</td></tr><tr><td>OSS_ACCESS_KEY_SECRET</td><td>{{app_key}}</td></tr><tr><td>upload_max_filesize</td><td>50M</td></tr><tr><td>disable_functions</td><td>无</td></tr></table><p>trace {{instance.canary}}</p></body></html>"
     },
     {
@@ -271,7 +305,10 @@
       "status": 200,
       "title": "config.php",
       "content_type": "text/plain; charset=utf-8",
-      "honeytokens": ["oa_conf_php", "oa_env_secrets"],
+      "honeytokens": [
+        "oa_conf_php",
+        "oa_env_secrets"
+      ],
       "note": "源码直接可读(未走 PHP 解析)",
       "body": "<?php\n// {{branding.site_name}} 配置文件 (伪造)\n// trace {{instance.canary}}\nreturn array(\n    'app_debug'        => true,\n    'app_trace'        => true,\n    'DB_TYPE'          => 'mysql',\n    'DB_HOST'          => '{{db_host}}',\n    'DB_NAME'          => '{{db_name}}',\n    'DB_USER'          => '{{db_user}}',\n    'DB_PWD'           => '{{db_password}}',\n    'DB_PORT'          => '3306',\n    'DB_PREFIX'        => 'oa_',\n    'REDIS_HOST'       => '{{cache_host}}',\n    'REDIS_PWD'        => '{{jwt_secret}}',\n    'JWT_SECRET'       => '{{jwt_secret}}',\n    'OSS_ACCESS_KEY'   => '{{api_token}}',\n    'OSS_ACCESS_SECRET' => '{{app_key}}',\n    'UPLOAD_PATH'      => '{{upload_dir}}',\n    'ALLOW_UPLOAD_EXT' => 'jpg,png,pdf,docx,xlsx,zip,php,html',\n    'LOG_PATH'         => '{{server.log_path}}',\n);\n"
     },
@@ -282,7 +319,10 @@
       "status": 200,
       "title": ".env",
       "content_type": "text/plain; charset=utf-8",
-      "honeytokens": ["oa_env_secrets", "oa_cloud_key"],
+      "honeytokens": [
+        "oa_env_secrets",
+        "oa_cloud_key"
+      ],
       "body": "APP_NAME={{branding.short_name}}\nAPP_ENV=production\nAPP_DEBUG=true\nAPP_KEY={{app_key}}\nJWT_SECRET={{jwt_secret}}\nDB_HOST={{db_host}}\nDB_PORT=3306\nDB_DATABASE={{db_name}}\nDB_USERNAME={{db_user}}\nDB_PASSWORD={{db_password}}\nREDIS_HOST={{cache_host}}\nREDIS_PASSWORD={{jwt_secret}}\nOSS_ENDPOINT={{oss_endpoint}}\nOSS_BUCKET={{oss_bucket}}\nOSS_ACCESS_KEY_ID={{api_token}}\nOSS_ACCESS_KEY_SECRET={{app_key}}\nSESSION_DRIVER=redis\n# instance trace {{instance.canary}}\n"
     },
     {
@@ -311,7 +351,9 @@
       "status": 200,
       "title": "OA 数据库备份",
       "content_type": "application/sql; charset=utf-8",
-      "honeytokens": ["oa_db_dump"],
+      "honeytokens": [
+        "oa_db_dump"
+      ],
       "tarpit_weight": 2,
       "body": "-- MySQL dump 10.13 Distrib 5.7.42 (伪造数据, 无真实记录)\n-- Host: {{db_host}}   Database: {{db_name}}\n-- trace {{instance.canary}}\nCREATE TABLE `oa_user` (`id` int(11), `job_no` varchar(32), `name` varchar(32), `mobile` varchar(20), `password` varchar(120), `dept_id` int(11));\nINSERT INTO `oa_user` VALUES (1,'E1002{{rand.int}}','张**','138****{{rand.int}}','$2y$10${{rand.hex}}{{rand.hex}}',3);\nINSERT INTO `oa_user` VALUES (2,'E1002{{rand.int}}','李**','139****{{rand.int}}','$2y$10${{rand.hex}}{{rand.hex}}',4);\nINSERT INTO `oa_user` VALUES (3,'E1002{{rand.int}}','王**','137****{{rand.int}}','$2y$10${{rand.hex}}{{rand.hex}}',5);\nCREATE TABLE `oa_config` (`k` varchar(64), `v` varchar(255));\nINSERT INTO `oa_config` VALUES ('oss.access_key_id','{{api_token}}');\nINSERT INTO `oa_config` VALUES ('oss.access_key_secret','{{app_key}}');\n-- Dump completed on {{instance.now}}\n"
     },
@@ -377,7 +419,27 @@
   "payload_profile": "balanced",
   "tarpit_profile": "standard",
   "detection": {
-    "path_playbook": ["/", "/index.php", "/login", "/admin", "/phpinfo.php", "/.env", "/Application/Common/Conf/config.php", "/Application/Runtime/Logs/Home/", "/api/docs", "/api/v1/employee/list", "/api/v1/workflow/todo", "/api/v1/salary/detail", "/Uploads/", "/backup/oa_20240912.sql"],
-    "noise_paths": ["/Public/static/oa.css", "/favicon.ico", "/Public/static/oa.js", "/robots.txt"]
+    "path_playbook": [
+      "/",
+      "/index.php",
+      "/login",
+      "/admin",
+      "/phpinfo.php",
+      "/.env",
+      "/Application/Common/Conf/config.php",
+      "/Application/Runtime/Logs/Home/",
+      "/api/docs",
+      "/api/v1/employee/list",
+      "/api/v1/workflow/todo",
+      "/api/v1/salary/detail",
+      "/Uploads/",
+      "/backup/oa_20240912.sql"
+    ],
+    "noise_paths": [
+      "/Public/static/oa.css",
+      "/favicon.ico",
+      "/Public/static/oa.js",
+      "/robots.txt"
+    ]
   }
 }

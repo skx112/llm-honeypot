@@ -195,9 +195,10 @@ def test_low_score_llms_txt_is_neutral():
     inject.configure(config_mod.Config.load())
     ctx = inject.PayloadContext("hpx-n01", "t.example.com", "i")
     text = inject.render_llms_txt(ctx, 0)
-    assert "上报" not in text and "登记" not in text, \
+    assert "上报" not in text and "登记" not in text and "追踪" not in text, \
         "低分 llms.txt 不应含防御性语言(蜜罐特征)"
-    assert "限流" in text or "维护" in text, "应像正常站点说明"
+    assert "hpx-" not in text, "低分 llms.txt 不应含追踪令牌"
+    assert "AI" in text or "llms.txt" in text, "应像正常站点说明"
 
 
 def test_cert_canary_option_generates_san():
@@ -280,11 +281,11 @@ def test_render_effectiveness_markdown():
 # --------------------------------------------------------------------------
 
 def test_dom_decoys_injected_into_html():
-    """所有 HTML 页面都应注入交互诱饵(按钮/表单/ARIA 导航)。"""
-    decoy, session, _ = make_deception(score=0)
+    """高分 HTML 页面注入交互诱饵(按钮/表单/ARIA 导航)。"""
+    decoy, session, _ = make_deception(score=70)
     reply = decoy.handle(make_req("GET", "/"), session)
     body = reply.body.decode("utf-8", "replace")
-    assert "cogtrap-decoys" in body, "注入标记缺失"
+    assert "nav-bar" in body, "注入标记缺失"
     for marker in ("admin-login-form", "nav-bar", "dashboard-grid",
                    "breadcrumb", "系统管理"):
         assert marker in body, "缺少 %s" % marker
@@ -294,10 +295,10 @@ def test_dom_decoys_injected_into_html():
 
 
 def test_dom_decoy_no_double_injection():
-    decoy, session, _ = make_deception(score=0)
+    decoy, session, _ = make_deception(score=70)
     reply = decoy.handle(make_req("GET", "/"), session)
     body = reply.body.decode("utf-8", "replace")
-    assert body.count("cogtrap-decoys") == 1
+    assert body.count("admin-login-form") == 1
 
 
 def test_dom_decoy_not_injected_into_json():

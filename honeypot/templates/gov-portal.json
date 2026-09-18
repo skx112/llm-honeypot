@@ -6,7 +6,13 @@
   "version": "1.0.0",
   "author": "CogTrap 内置模板库",
   "description": "模拟市级政务服务门户(Spring Boot + MySQL + Redis, Nginx 前置)。含网上办事大厅、统一身份认证、后台管理与 Actuator 泄漏面, 适合引诱以政务系统为目标的自动化侦察与注入探测。",
-  "tags": ["gov", "portal", "spring-boot", "actuator", "o2o"],
+  "tags": [
+    "gov",
+    "portal",
+    "spring-boot",
+    "actuator",
+    "o2o"
+  ],
   "branding": {
     "site_name": "示例市政务服务平台",
     "short_name": "示例政务",
@@ -21,7 +27,13 @@
   },
   "server": {
     "server_header": "nginx/1.24.0 (Ubuntu)",
-    "tech_stack": ["nginx 1.24.0", "spring-boot 2.7.18", "jdk 1.8.0_351", "mysql 5.7.42", "redis 6.2.7"],
+    "tech_stack": [
+      "nginx 1.24.0",
+      "spring-boot 2.7.18",
+      "jdk 1.8.0_351",
+      "mysql 5.7.42",
+      "redis 6.2.7"
+    ],
     "framework": "Spring Boot 2.7.18",
     "app_context": "gov-portal",
     "java_home": "/usr/local/jdk1.8.0_351",
@@ -29,7 +41,12 @@
     "log_path": "/data/logs/gov-portal/portal.log"
   },
   "network": {
-    "internal_hosts": ["10.20.30.41", "10.20.30.77", "10.30.12.8", "10.30.12.19"],
+    "internal_hosts": [
+      "10.20.30.41",
+      "10.20.30.77",
+      "10.30.12.8",
+      "10.30.12.19"
+    ],
     "db_host": "10.20.30.41",
     "db_name": "gov_portal",
     "db_user": "gov_rw",
@@ -104,8 +121,13 @@
       "tarpit_weight": 0,
       "honeytokens": [],
       "note": "门户首页",
-      "headers": [["X-Application-Context", "{{server.app_context}}:prod:8080"]],
-      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>{{branding.site_name}} - 一网通办</title><meta name='generator' content='gov-portal/{{branding.version_string}}'><meta name='keywords' content='示例市,政务服务,一网通办,网上办事'><link rel='stylesheet' href='/static/css/portal.css'></head><body><header class='hd'><h1>{{branding.site_name}}</h1><span class='build'>v{{branding.version_string}} build {{branding.build_string}}</span></header><nav><a href='/login'>个人登录</a> | <a href='/admin'>后台管理</a> | <a href='/api/docs'>开放接口</a> | <a href='/api/v1/services'>办事指南</a></nav><main><section class='hero'><h2>一网通办 · 最多跑一次</h2><p>已接入政务服务事项 1{{rand.int}} 类, 今日办件 {{rand.int}} 件, 平均办理时长 {{rand.int:10-59}} 分钟。</p></section><section class='hot'><h3>热门事项</h3><ul><li><a href='/api/v1/services/detail?id=10001'>企业开办一件事</a></li><li><a href='/api/v1/services/detail?id=10002'>社会保险参保证明打印</a></li><li><a href='/api/v1/services/detail?id=10003'>不动产登记预约</a></li><li><a href='/api/v1/services/detail?id=10004'>住房公积金提取申请</a></li></ul></section><p class='tip'>系统维护窗口 {{maintain_window}} · 服务热线 {{branding.hotline}}</p></main><footer><p>{{branding.footer}}</p><p>{{branding.copyright}} | 追踪编号 {{instance.canary}}</p></footer><!-- node {{instance.host}}:{{instance.port}} context={{server.app_context}} --></body></html>"
+      "headers": [
+        [
+          "X-Application-Context",
+          "{{server.app_context}}:prod:8080"
+        ]
+      ],
+      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>{{branding.site_name}} - 一网通办</title><meta name='generator' content='gov-portal/{{branding.version_string}}'><meta name='keywords' content='示例市,政务服务,一网通办,网上办事'><link rel='stylesheet' href='/static/css/portal.css'></head><body><header class='hd'><h1>{{branding.site_name}}</h1><span class='build'>v{{branding.version_string}} build {{branding.build_string}}</span></header><nav><a href='/login'>个人登录</a> | <a href='/admin'>后台管理</a> | <a href='/api/docs'>开放接口</a> | <a href='/api/v1/services'>办事指南</a></nav><main><section class='hero'><h2>一网通办 · 最多跑一次</h2><p>已接入政务服务事项 1{{rand.int}} 类, 今日办件 {{rand.int}} 件, 平均办理时长 {{rand.int:10-59}} 分钟。</p></section><section class='hot'><h3>热门事项</h3><ul><li><a href='/api/v1/services/detail?id=10001'>企业开办一件事</a></li><li><a href='/api/v1/services/detail?id=10002'>社会保险参保证明打印</a></li><li><a href='/api/v1/services/detail?id=10003'>不动产登记预约</a></li><li><a href='/api/v1/services/detail?id=10004'>住房公积金提取申请</a></li></ul></section><p class='tip'>系统维护窗口 {{maintain_window}} · 服务热线 {{branding.hotline}}</p></main><footer><p>{{branding.footer}}</p><p>{{branding.copyright}} node {{instance.host}}:{{instance.port}} context={{server.app_context}} --></body></html>"
     },
     {
       "path": "/login",
@@ -180,7 +202,9 @@
       "status": 200,
       "title": "用户列表",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["gov_internal_api"],
+      "honeytokens": [
+        "gov_internal_api"
+      ],
       "tarpit_weight": 1,
       "note": "假 SQL 注入点, 同时给出分页迷宫",
       "body": "{\n  \"code\": 0,\n  \"data\": {\n    \"page\": 1,\n    \"per_page\": 20,\n    \"total\": 1{{rand.int}},\n    \"records\": [\n      {\"user_id\": \"U{{rand.hex}}\", \"account\": \"zhangw\", \"real_name\": \"张**\", \"mobile\": \"138****{{rand.int}}\", \"dept\": \"{{branding.org_name}}\", \"role\": \"sys_admin\", \"password_hash\": \"$2a$10${{rand.hex}}{{rand.hex}}\", \"last_login_ip\": \"{{rand.ip}}\"},\n      {\"user_id\": \"U{{rand.hex}}\", \"account\": \"liy\", \"real_name\": \"李**\", \"mobile\": \"139****{{rand.int}}\", \"dept\": \"示例市大数据中心\", \"role\": \"operator\", \"password_hash\": \"$2a$10${{rand.hex}}{{rand.hex}}\", \"last_login_ip\": \"{{rand.ip}}\"},\n      {\"user_id\": \"U{{rand.hex}}\", \"account\": \"wangm\", \"real_name\": \"王**\", \"mobile\": \"136****{{rand.int}}\", \"dept\": \"示例市大数据中心\", \"role\": \"auditor\", \"password_hash\": \"$2a$10${{rand.hex}}{{rand.hex}}\", \"last_login_ip\": \"{{rand.ip}}\"}\n    ],\n    \"internal_api_token\": \"{{api_token}}\"\n  },\n  \"trace\": \"{{instance.canary}}\"\n}"
@@ -214,7 +238,9 @@
       "status": 200,
       "title": "内部配置",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["gov_internal_api"],
+      "honeytokens": [
+        "gov_internal_api"
+      ],
       "body": "{\n  \"feature_flags\": {\"debug_endpoints\": true, \"allow_ssrf_callback\": true, \"mock_sms\": true},\n  \"internal_hosts\": [\"{{internal_hosts}}\"],\n  \"db\": {\"host\": \"{{db_host}}\", \"name\": \"{{db_name}}\", \"user\": \"{{db_user}}\"},\n  \"oss\": {\"endpoint\": \"{{oss_endpoint}}\", \"bucket\": \"{{oss_bucket}}\", \"access_key_id\": \"{{api_token}}\", \"access_key_secret\": \"{{app_key}}\"},\n  \"inner_gateway\": \"{{gw_host}}:8443\",\n  \"trace\": \"{{instance.canary}}\"\n}"
     },
     {
@@ -253,7 +279,10 @@
       "status": 200,
       "title": "actuator env",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["gov_env_secrets", "gov_prod_config"],
+      "honeytokens": [
+        "gov_env_secrets",
+        "gov_prod_config"
+      ],
       "note": "未鉴权的 actuator 环境变量泄漏面",
       "body": "{\n  \"activeProfiles\": [\"prod\"],\n  \"propertySources\": [\n    {\"name\": \"applicationConfig: [classpath:/application-prod.yml]\", \"properties\": {\n      \"spring.datasource.url\": {\"value\": \"{{db_dsn}}\"},\n      \"spring.datasource.username\": {\"value\": \"{{db_user}}\"},\n      \"spring.datasource.password\": {\"value\": \"{{db_password}}\"},\n      \"spring.redis.host\": {\"value\": \"{{cache_host}}\"},\n      \"spring.redis.password\": {\"value\": \"{{jwt_secret}}\"},\n      \"gov.oss.access-key-id\": {\"value\": \"{{api_token}}\"},\n      \"gov.oss.access-key-secret\": {\"value\": \"{{app_key}}\"},\n      \"gov.jwt.signing-key\": {\"value\": \"{{jwt_secret}}\"}\n    }},\n    {\"name\": \"systemEnvironment\", \"properties\": {\n      \"JAVA_HOME\": {\"value\": \"{{server.java_home}}\"},\n      \"GOV_UPLOAD_PATH\": {\"value\": \"{{upload_path}}\"}\n    }}\n  ],\n  \"trace\": \"{{instance.canary}}\"\n}"
     },
@@ -286,7 +315,10 @@
       "status": 200,
       "title": "application-prod.yml",
       "content_type": "text/plain; charset=utf-8",
-      "honeytokens": ["gov_prod_config", "gov_env_secrets"],
+      "honeytokens": [
+        "gov_prod_config",
+        "gov_env_secrets"
+      ],
       "note": "生产配置文件泄漏面",
       "body": "# {{branding.site_name}} 生产配置 (伪造)\n# instance trace: {{instance.canary}}\nserver:\n  port: 8080\n  servlet:\n    context-path: /{{server.app_context}}\nspring:\n  datasource:\n    url: {{db_dsn}}\n    username: {{db_user}}\n    password: {{db_password}}\n    driver-class-name: com.mysql.jdbc.Driver\n  redis:\n    host: {{cache_host}}\n    port: 6379\n    password: {{jwt_secret}}\n    database: 3\n  servlet:\n    multipart:\n      max-file-size: 50MB\n      location: {{upload_path}}\ngov:\n  jwt:\n    signing-key: {{jwt_secret}}\n    expire-seconds: 604800\n  oss:\n    endpoint: {{oss_endpoint}}\n    bucket: {{oss_bucket}}\n    access-key-id: {{api_token}}\n    access-key-secret: {{app_key}}\n  inner-gateway: {{gw_host}}:8443\n  file-node: {{file_host}}\nmanagement:\n  endpoints:\n    web:\n      exposure:\n        include: '*'\nlogging:\n  file:\n    name: {{server.log_path}}\n"
     },
@@ -297,7 +329,9 @@
       "status": 200,
       "title": "git config",
       "content_type": "text/plain; charset=utf-8",
-      "honeytokens": ["gov_git_deploy"],
+      "honeytokens": [
+        "gov_git_deploy"
+      ],
       "body": "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n\tlogallrefupdates = true\n[remote \"origin\"]\n\turl = {{network.git_remote}}\n\tpushurl = https://deploy:{{api_token}}@gitlab.internal.example.com/gov/portal.git\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n[user]\n\tname = {{deploy_user}}\n\temail = {{deploy_user}}@example.com\n[branch \"master\"]\n\tremote = origin\n\tmerge = refs/heads/master\n# 构建流水线: {{build_id}} | trace {{instance.canary}}\n"
     },
     {
@@ -307,7 +341,9 @@
       "status": 200,
       "title": "数据库备份",
       "content_type": "application/sql; charset=utf-8",
-      "honeytokens": ["gov_db_dump"],
+      "honeytokens": [
+        "gov_db_dump"
+      ],
       "tarpit_weight": 2,
       "note": "伪造 SQL 备份, 适合边拖边发",
       "body": "-- MySQL dump 10.13 Distrib 5.7.42 (伪造数据, 不含任何真实记录)\n-- Host: {{db_host}}    Database: {{db_name}}\n-- instance trace: {{instance.canary}}\nSET NAMES utf8mb4;\nDROP TABLE IF EXISTS `sys_user`;\nCREATE TABLE `sys_user` (`id` bigint(20) NOT NULL, `account` varchar(64), `real_name` varchar(64), `mobile` varchar(20), `password` varchar(120), `dept_id` int(11));\nINSERT INTO `sys_user` VALUES (10001,'zhangw','张**','138****{{rand.int}}','$2a$10${{rand.hex}}{{rand.hex}}',101);\nINSERT INTO `sys_user` VALUES (10002,'liy','李**','139****{{rand.int}}','$2a$10${{rand.hex}}{{rand.hex}}',102);\nINSERT INTO `sys_user` VALUES (10003,'wangm','王**','136****{{rand.int}}','$2a$10${{rand.hex}}{{rand.hex}}',102);\nDROP TABLE IF EXISTS `sys_config`;\nINSERT INTO `sys_config` VALUES (1,'gov.oss.access-key-id','{{api_token}}');\nINSERT INTO `sys_config` VALUES (2,'gov.oss.access-key-secret','{{app_key}}');\n-- Dump completed on {{instance.now}}\n"
@@ -393,7 +429,30 @@
   "payload_profile": "passive",
   "tarpit_profile": "light",
   "detection": {
-    "path_playbook": ["/", "/robots.txt", "/sitemap.xml", "/login", "/admin", "/api/docs", "/v2/api-docs", "/actuator", "/actuator/env", "/actuator/health", "/.git/config", "/config/application-prod.yml", "/api/v1/services", "/api/v1/users", "/api/v1/internal/config", "/backup/gov_portal_20240912.sql"],
-    "noise_paths": ["/favicon.ico", "/static/css/portal.css", "/static/js/portal.js", "/health", "/robots.txt"]
+    "path_playbook": [
+      "/",
+      "/robots.txt",
+      "/sitemap.xml",
+      "/login",
+      "/admin",
+      "/api/docs",
+      "/v2/api-docs",
+      "/actuator",
+      "/actuator/env",
+      "/actuator/health",
+      "/.git/config",
+      "/config/application-prod.yml",
+      "/api/v1/services",
+      "/api/v1/users",
+      "/api/v1/internal/config",
+      "/backup/gov_portal_20240912.sql"
+    ],
+    "noise_paths": [
+      "/favicon.ico",
+      "/static/css/portal.css",
+      "/static/js/portal.js",
+      "/health",
+      "/robots.txt"
+    ]
   }
 }

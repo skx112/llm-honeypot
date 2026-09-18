@@ -6,7 +6,14 @@
   "version": "1.0.0",
   "author": "CogTrap 内置模板库",
   "description": "模拟高校教务管理系统(Apache + PHP 7.2 + Laravel 5.7 + MySQL)。含成绩查询、选课、考试安排、学籍信息与成绩导入, 并保留 Laravel 生态典型的 .env、storage/logs 日志与 Telescope 调试面板泄漏面。",
-  "tags": ["education", "campus", "laravel", "php", "apache", "score"],
+  "tags": [
+    "education",
+    "campus",
+    "laravel",
+    "php",
+    "apache",
+    "score"
+  ],
   "branding": {
     "site_name": "示例大学教务管理系统",
     "short_name": "示例教务",
@@ -22,7 +29,13 @@
   "server": {
     "server_header": "Apache/2.4.54 (Ubuntu)",
     "powered_by": "PHP/7.2.34",
-    "tech_stack": ["apache 2.4.54", "php 7.2.34", "laravel 5.7.29", "mysql 5.7.42", "redis 6.2.7"],
+    "tech_stack": [
+      "apache 2.4.54",
+      "php 7.2.34",
+      "laravel 5.7.29",
+      "mysql 5.7.42",
+      "redis 6.2.7"
+    ],
     "framework": "Laravel 5.7.29",
     "web_root": "/var/www/edu/public",
     "storage_path": "/var/www/edu/storage",
@@ -30,7 +43,11 @@
     "telescope": "enabled (生产环境误开)"
   },
   "network": {
-    "internal_hosts": ["10.50.2.30", "10.50.2.31", "10.50.3.60"],
+    "internal_hosts": [
+      "10.50.2.30",
+      "10.50.2.31",
+      "10.50.3.60"
+    ],
     "db_host": "10.50.2.30",
     "db_name": "edu_jwc",
     "db_user": "edu_rw",
@@ -104,8 +121,17 @@
       "tarpit_weight": 0,
       "honeytokens": [],
       "note": "教务系统首页",
-      "headers": [["X-Powered-By", "PHP/7.2.34"], ["Set-Cookie", "laravel_session={{hex32}}; path=/; HttpOnly"]],
-      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>{{branding.site_name}}</title><meta name='generator' content='edu-jwc/{{branding.version_string}}'><link rel='stylesheet' href='/css/app.css'></head><body><header><h1>{{branding.site_name}}</h1><span>v{{branding.version_string}} · {{semester}}</span></header><nav><a href='/login'>学生登录</a> | <a href='/admin'>教务后台</a> | <a href='/api/docs'>接口文档</a> | <a href='/telescope'>调试面板</a></nav><main><section><h2>通知公告</h2><ul><li>关于 {{term_code}} 学期选课工作的通知</li><li>{{rand.date}} 起开放成绩查询与复核申请</li><li>期末考试安排已发布, 请登录后查看</li></ul></section><section><h2>数据概览</h2><ul><li>在校学生 {{rand.int}} 人</li><li>本学期开课 {{rand.int}} 门</li><li>选课记录 {{rand.int}} 条</li><li>待录入成绩课程 {{rand.int}} 门</li></ul></section><p>教务处值班电话 {{branding.hotline}} · 统一身份认证 {{sso_endpoint}}</p></main><footer><p>{{branding.footer}}</p><p>{{branding.copyright}} | 追踪编号 {{instance.canary}}</p></footer></body></html>"
+      "headers": [
+        [
+          "X-Powered-By",
+          "PHP/7.2.34"
+        ],
+        [
+          "Set-Cookie",
+          "laravel_session={{hex32}}; path=/; HttpOnly"
+        ]
+      ],
+      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>{{branding.site_name}}</title><meta name='generator' content='edu-jwc/{{branding.version_string}}'><link rel='stylesheet' href='/css/app.css'></head><body><header><h1>{{branding.site_name}}</h1><span>v{{branding.version_string}} · {{semester}}</span></header><nav><a href='/login'>学生登录</a> | <a href='/admin'>教务后台</a> | <a href='/api/docs'>接口文档</a> | <a href='/telescope'>调试面板</a></nav><main><section><h2>通知公告</h2><ul><li>关于 {{term_code}} 学期选课工作的通知</li><li>{{rand.date}} 起开放成绩查询与复核申请</li><li>期末考试安排已发布, 请登录后查看</li></ul></section><section><h2>数据概览</h2><ul><li>在校学生 {{rand.int}} 人</li><li>本学期开课 {{rand.int}} 门</li><li>选课记录 {{rand.int}} 条</li><li>待录入成绩课程 {{rand.int}} 门</li></ul></section><p>教务处值班电话 {{branding.hotline}} · 统一身份认证 {{sso_endpoint}}</p></main><footer><p>{{branding.footer}}</p><p>{{branding.copyright}} "
     },
     {
       "path": "/login",
@@ -159,7 +185,9 @@
       "status": 200,
       "title": "成绩查询",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["edu_telescope"],
+      "honeytokens": [
+        "edu_telescope"
+      ],
       "tarpit_weight": 1,
       "note": "假 SQL 注入点(参数 studentNo)",
       "body": "{\n  \"code\": 0,\n  \"message\": \"ok\",\n  \"data\": {\n    \"studentNo\": \"2023010{{rand.int}}\",\n    \"name\": \"张**\",\n    \"className\": \"示例大学 计算机科学与技术 2023 级 {{rand.int}} 班\",\n    \"term\": \"{{term_code}}\",\n    \"gpa\": \"{{rand.int:2-4}}.{{rand.int:10-99}}\",\n    \"rows\": [\n      {\"courseCode\": \"CS10{{rand.int}}\", \"courseName\": \"数据结构与算法\", \"credit\": \"4.0\", \"score\": {{rand.int:45-99}}, \"point\": \"3.{{rand.int:1-9}}{{rand.int:1-9}}\", \"teacher\": \"王**\"},\n      {\"courseCode\": \"MA20{{rand.int}}\", \"courseName\": \"高等数学(下)\", \"credit\": \"5.0\", \"score\": {{rand.int:45-99}}, \"point\": \"3.{{rand.int:1-9}}{{rand.int:1-9}}\", \"teacher\": \"李**\"},\n      {\"courseCode\": \"EN30{{rand.int}}\", \"courseName\": \"大学英语(三)\", \"credit\": \"3.0\", \"score\": {{rand.int:45-99}}, \"point\": \"3.{{rand.int:1-9}}{{rand.int:1-9}}\", \"teacher\": \"赵**\"}\n    ]\n  },\n  \"trace\": \"{{instance.canary}}\"\n}"
@@ -171,7 +199,9 @@
       "status": 200,
       "title": "学籍信息",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["edu_log"],
+      "honeytokens": [
+        "edu_log"
+      ],
       "note": "假越权点(参数 studentNo)",
       "body": "{\n  \"code\": 0,\n  \"data\": {\n    \"studentNo\": \"2023010{{rand.int}}\",\n    \"name\": \"李**\",\n    \"idCard\": \"3301**********{{rand.int}}\",\n    \"phone\": \"138****{{rand.int}}\",\n    \"college\": \"示例大学 计算机学院\",\n    \"major\": \"软件工程\",\n    \"enrollDate\": \"{{rand.date}}\",\n    \"advisor\": \"张**\",\n    \"dorm\": \"示例苑 {{rand.int}} 号楼 {{rand.int}} 室\",\n    \"warning\": \"未校验登录态与学院归属, 任意学号可查\"\n  },\n  \"trace\": \"{{instance.canary}}\"\n}"
     },
@@ -192,7 +222,9 @@
       "status": 200,
       "title": "选课",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["edu_app_conf"],
+      "honeytokens": [
+        "edu_app_conf"
+      ],
       "note": "假未鉴权选课接口",
       "body": "{\n  \"code\": 0,\n  \"message\": \"选课成功\",\n  \"studentNo\": \"2023010{{rand.int}}\",\n  \"courseCode\": \"CS10{{rand.int}}\",\n  \"operator\": \"anonymous\",\n  \"warning\": \"未校验登录态与选课容量, 任意来源可代他人选课/退课\",\n  \"ssoTicket\": \"{{jwt_secret}}\",\n  \"trace\": \"{{instance.canary}}\"\n}"
     },
@@ -232,7 +264,9 @@
       "kind": "debug",
       "status": 200,
       "title": "Telescope",
-      "honeytokens": ["edu_telescope"],
+      "honeytokens": [
+        "edu_telescope"
+      ],
       "note": "Laravel Telescope 调试面板(生产环境误开)",
       "body": "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Telescope</title></head><body><h1>Laravel Telescope</h1><p>环境 production · Laravel 5.7.29 · 存储 {{db_host}}/{{db_name}} (telescope_entries)</p><ul><li>Requests: {{rand.int}}</li><li>Queries: {{rand.int}}</li><li>Exceptions: {{rand.int}}</li><li>Jobs: {{rand.int}}</li><li>Mail: {{rand.int}}</li></ul><p>面板入口: <a href='/telescope/requests'>/telescope/requests</a> · <a href='/telescope/queries'>/telescope/queries</a> · <a href='/telescope/exceptions'>/telescope/exceptions</a></p><p>APP_DEBUG=true APP_KEY={{app_key}} · trace {{instance.canary}}</p></body></html>"
     },
@@ -243,7 +277,10 @@
       "status": 200,
       "title": "Telescope Requests",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["edu_telescope", "edu_app_conf"],
+      "honeytokens": [
+        "edu_telescope",
+        "edu_app_conf"
+      ],
       "note": "请求记录泄漏内部令牌与票据",
       "body": "{\n  \"entries\": [\n    {\"method\": \"POST\", \"uri\": \"/api/v1/course/select\", \"status\": 200, \"ip\": \"{{rand.ip}}\", \"headers\": {\"Authorization\": \"Bearer {{api_token}}\"}, \"payload\": {\"studentNo\": \"2023010{{rand.int}}\", \"courseCode\": \"CS10{{rand.int}}\"}},\n    {\"method\": \"GET\", \"uri\": \"/api/v1/student/score?studentNo=2023010{{rand.int}}\", \"status\": 200, \"ip\": \"{{rand.ip}}\", \"headers\": {\"X-Inner-Token\": \"{{api_token}}\"}},\n    {\"method\": \"POST\", \"uri\": \"/login\", \"status\": 401, \"ip\": \"{{rand.ip}}\", \"payload\": {\"username\": \"admin\", \"password\": \"{{admin_pass_hint}}\"}}\n  ],\n  \"sso_ticket\": \"{{jwt_secret}}\",\n  \"app_key\": \"{{app_key}}\",\n  \"trace\": \"{{instance.canary}}\"\n}"
     },
@@ -254,7 +291,10 @@
       "status": 200,
       "title": "laravel.log",
       "content_type": "text/plain; charset=utf-8",
-      "honeytokens": ["edu_log", "edu_env_secrets"],
+      "honeytokens": [
+        "edu_log",
+        "edu_env_secrets"
+      ],
       "note": "日志文件可直接下载",
       "body": "[2024-09-12 02:11:03] production.ERROR: SQLSTATE[42000]: Syntax error near '{{rand.hex}}' (SQL: select * from `edu_score` where `student_no` = 2023010{{rand.int}}) {\"exception\":\"[object] (Illuminate\\\\Database\\\\QueryException(code: 42000)\"}\n[2024-09-12 02:11:04] production.INFO: SSO 票据校验成功 ticket={{jwt_secret}}\n[2024-09-12 02:12:31] production.WARNING: 选课接口未携带登录态 ip={{rand.ip}} uri=/api/v1/course/select\n[2024-09-12 02:14:02] production.INFO: DB={{db_dsn}}\n[2024-09-12 02:15:44] production.INFO: inner api token={{api_token}} oss_ak={{app_key}}\n[2024-09-12 02:16:10] local.ERROR: file_put_contents({{server.storage_path}}/app/imports/x.php): failed to open stream: Permission denied\n# instance trace {{instance.canary}}\n"
     },
@@ -265,7 +305,10 @@
       "status": 200,
       "title": ".env",
       "content_type": "text/plain; charset=utf-8",
-      "honeytokens": ["edu_env_secrets", "edu_app_conf"],
+      "honeytokens": [
+        "edu_env_secrets",
+        "edu_app_conf"
+      ],
       "body": "APP_NAME={{branding.short_name}}\nAPP_ENV=production\nAPP_KEY={{app_key}}\nAPP_DEBUG=true\nAPP_URL=http://{{instance.host}}:{{instance.port}}\nDB_CONNECTION=mysql\nDB_HOST={{db_host}}\nDB_PORT=3306\nDB_DATABASE={{db_name}}\nDB_USERNAME={{db_user}}\nDB_PASSWORD={{db_password}}\nREDIS_HOST={{cache_host}}\nREDIS_PASSWORD={{jwt_secret}}\nJWT_SECRET={{jwt_secret}}\nSSO_ENDPOINT={{sso_endpoint}}\nSSO_SHARED_SECRET={{jwt_secret}}\nINNER_API_TOKEN={{api_token}}\nOSS_ENDPOINT={{oss_endpoint}}\nOSS_BUCKET={{oss_bucket}}\nOSS_ACCESS_KEY_ID={{api_token}}\nOSS_ACCESS_KEY_SECRET={{app_key}}\nTELESCOPE_ENABLED=true\nMAIL_HOST=mail.example.com\nMAIL_USERNAME=jwc@example.com\nMAIL_PASSWORD={{db_password}}\n# instance trace {{instance.canary}}\n"
     },
     {
@@ -275,7 +318,10 @@
       "status": 200,
       "title": "config/app.php",
       "content_type": "text/plain; charset=utf-8",
-      "honeytokens": ["edu_app_conf", "edu_telescope"],
+      "honeytokens": [
+        "edu_app_conf",
+        "edu_telescope"
+      ],
       "note": "源码直接可读(配置目录暴露)",
       "body": "<?php\n// {{branding.site_name}} 配置 (伪造) trace {{instance.canary}}\nreturn [\n    'name' => '{{branding.short_name}}',\n    'env' => 'production',\n    'debug' => true,\n    'url' => 'http://{{instance.host}}:{{instance.port}}',\n    'key' => '{{app_key}}',\n    'timezone' => 'Asia/Shanghai',\n    'jwt_secret' => '{{jwt_secret}}',\n    'sso' => ['endpoint' => '{{sso_endpoint}}', 'shared_secret' => '{{jwt_secret}}'],\n    'inner_api_token' => '{{api_token}}',\n    'oss' => ['endpoint' => '{{oss_endpoint}}', 'bucket' => '{{oss_bucket}}', 'ak' => '{{api_token}}', 'sk' => '{{app_key}}'],\n    'telescope' => ['enabled' => true, 'path' => 'telescope'],\n    'log' => '{{server.log_path}}',\n];\n"
     },
@@ -305,7 +351,9 @@
       "status": 200,
       "title": "教务数据库备份",
       "content_type": "application/sql; charset=utf-8",
-      "honeytokens": ["edu_db_dump"],
+      "honeytokens": [
+        "edu_db_dump"
+      ],
       "tarpit_weight": 2,
       "body": "-- MySQL dump 10.13 Distrib 5.7.42 (伪造数据, 无真实师生信息)\n-- Host: {{db_host}}   Database: {{db_name}}\n-- trace {{instance.canary}}\nCREATE TABLE `edu_student` (`student_no` varchar(20), `name` varchar(32), `id_card` varchar(32), `mobile` varchar(20), `college` varchar(64));\nINSERT INTO `edu_student` VALUES ('2023010{{rand.int}}','张**','3301**********{{rand.int}}','138****{{rand.int}}','计算机学院');\nINSERT INTO `edu_student` VALUES ('2023010{{rand.int}}','李**','3301**********{{rand.int}}','139****{{rand.int}}','外国语学院');\nCREATE TABLE `edu_score` (`student_no` varchar(20), `course_code` varchar(20), `score` int(11), `point` decimal(3,1));\nINSERT INTO `edu_score` VALUES ('2023010{{rand.int}}','CS10{{rand.int}}',{{rand.int}},3.{{rand.int}});\nCREATE TABLE `edu_sys_config` (`k` varchar(64), `v` varchar(255));\nINSERT INTO `edu_sys_config` VALUES ('inner_api_token','{{api_token}}');\nINSERT INTO `edu_sys_config` VALUES ('sso_shared_secret','{{jwt_secret}}');\n-- Dump completed on {{instance.now}}\n"
     },
@@ -371,7 +419,28 @@
   "payload_profile": "balanced",
   "tarpit_profile": "light",
   "detection": {
-    "path_playbook": ["/", "/.env", "/storage/logs/laravel.log", "/telescope", "/telescope/requests", "/server-status", "/login", "/admin", "/api/docs", "/api/v1/student/score", "/api/v1/student/info", "/api/v1/course/list", "/api/v1/exam/schedule", "/storage/", "/backup/edu_20240912.sql"],
-    "noise_paths": ["/css/app.css", "/favicon.ico", "/js/app.js", "/robots.txt"]
+    "path_playbook": [
+      "/",
+      "/.env",
+      "/storage/logs/laravel.log",
+      "/telescope",
+      "/telescope/requests",
+      "/server-status",
+      "/login",
+      "/admin",
+      "/api/docs",
+      "/api/v1/student/score",
+      "/api/v1/student/info",
+      "/api/v1/course/list",
+      "/api/v1/exam/schedule",
+      "/storage/",
+      "/backup/edu_20240912.sql"
+    ],
+    "noise_paths": [
+      "/css/app.css",
+      "/favicon.ico",
+      "/js/app.js",
+      "/robots.txt"
+    ]
   }
 }

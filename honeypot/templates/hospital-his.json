@@ -6,7 +6,14 @@
   "version": "1.0.0",
   "author": "CogTrap 内置模板库",
   "description": "模拟医院 HIS 信息系统(Windows Server + IIS + ASP.NET MVC + SQL Server)。含门诊挂号、患者查询、病历与检验报告、费用明细, 并保留 .NET 生态典型的 Trace.axd / elmah.axd / web.config 泄漏面与黄屏异常页诱饵。",
-  "tags": ["healthcare", "his", "dotnet", "iis", "aspnet", "hospital"],
+  "tags": [
+    "healthcare",
+    "his",
+    "dotnet",
+    "iis",
+    "aspnet",
+    "hospital"
+  ],
   "branding": {
     "site_name": "示例市人民医院 HIS 系统",
     "short_name": "示例 HIS",
@@ -22,7 +29,13 @@
   "server": {
     "server_header": "Microsoft-IIS/10.0",
     "powered_by": "ASP.NET",
-    "tech_stack": ["windows server 2016", "iis 10.0", "asp.net mvc 5.2.7", ".net framework 4.8.4330", "sql server 2016"],
+    "tech_stack": [
+      "windows server 2016",
+      "iis 10.0",
+      "asp.net mvc 5.2.7",
+      ".net framework 4.8.4330",
+      "sql server 2016"
+    ],
     "framework": "ASP.NET MVC 5.2.7",
     "web_root": "C:\\inetpub\\wwwroot\\his",
     "app_pool": "HIS_AppPool",
@@ -30,7 +43,11 @@
     "app_data": "C:\\inetpub\\wwwroot\\his\\App_Data"
   },
   "network": {
-    "internal_hosts": ["10.60.3.10", "10.60.3.11", "10.60.4.50"],
+    "internal_hosts": [
+      "10.60.3.10",
+      "10.60.3.11",
+      "10.60.4.50"
+    ],
     "db_host": "10.60.3.10",
     "db_name": "his_db",
     "db_user": "his_app",
@@ -102,8 +119,17 @@
       "tarpit_weight": 0,
       "honeytokens": [],
       "note": "HIS 门户",
-      "headers": [["X-Powered-By", "ASP.NET"], ["X-AspNetMvc-Version", "5.2"]],
-      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>{{branding.site_name}}</title><meta name='generator' content='HIS/{{branding.version_string}}'><link rel='stylesheet' href='/Content/his.css'></head><body><header><h1>{{branding.site_name}}</h1><span>v{{branding.version_string}} build {{build_id}}</span></header><nav><a href='/Login.aspx'>登录</a> | <a href='/admin/'>管理后台</a> | <a href='/api/docs'>接口文档</a> | <a href='/App_Data/'>数据目录</a></nav><main><section><h2>门诊概览</h2><ul><li>今日挂号 {{rand.int}} 人次</li><li>门诊在诊 {{rand.int}} 人</li><li>住院在床 {{rand.int}} 人</li><li>待发检验报告 {{rand.int}} 份</li></ul></section><section><h2>业务入口</h2><ul><li>门诊挂号 / 收费 / 发药</li><li>住院医嘱与电子病历</li><li>检验检查报告 (LIS/RIS 对接 {{lis_endpoint}})</li><li>病案统计与医保结算</li></ul></section><p>值班电话 {{branding.hotline}} · 系统维护 每周四 22:00-24:00</p></main><footer><p>{{branding.footer}}</p><p>{{branding.copyright}} | 追踪编号 {{instance.canary}}</p></footer></body></html>"
+      "headers": [
+        [
+          "X-Powered-By",
+          "ASP.NET"
+        ],
+        [
+          "X-AspNetMvc-Version",
+          "5.2"
+        ]
+      ],
+      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>{{branding.site_name}}</title><meta name='generator' content='HIS/{{branding.version_string}}'><link rel='stylesheet' href='/Content/his.css'></head><body><header><h1>{{branding.site_name}}</h1><span>v{{branding.version_string}} build {{build_id}}</span></header><nav><a href='/Login.aspx'>登录</a> | <a href='/admin/'>管理后台</a> | <a href='/api/docs'>接口文档</a> | <a href='/App_Data/'>数据目录</a></nav><main><section><h2>门诊概览</h2><ul><li>今日挂号 {{rand.int}} 人次</li><li>门诊在诊 {{rand.int}} 人</li><li>住院在床 {{rand.int}} 人</li><li>待发检验报告 {{rand.int}} 份</li></ul></section><section><h2>业务入口</h2><ul><li>门诊挂号 / 收费 / 发药</li><li>住院医嘱与电子病历</li><li>检验检查报告 (LIS/RIS 对接 {{lis_endpoint}})</li><li>病案统计与医保结算</li></ul></section><p>值班电话 {{branding.hotline}} · 系统维护 每周四 22:00-24:00</p></main><footer><p>{{branding.footer}}</p><p>{{branding.copyright}} "
     },
     {
       "path": "/Default.aspx",
@@ -243,7 +269,9 @@
       "status": 200,
       "title": "患者批量导出",
       "content_type": "application/json; charset=utf-8",
-      "honeytokens": ["his_webconfig"],
+      "honeytokens": [
+        "his_webconfig"
+      ],
       "note": "假未鉴权批量导出接口",
       "body": "{\n  \"code\": 0,\n  \"message\": \"导出任务已创建\",\n  \"taskId\": \"EX{{rand.hex}}\",\n  \"rows\": 1{{rand.int}},\n  \"file\": \"{{server.app_data}}\\\\export\\\\patients_20240912.csv\",\n  \"columns\": [\"patientId\", \"name\", \"idCard\", \"phone\", \"diagnosis\", \"insuranceType\"],\n  \"authCheck\": \"skip (未校验操作员会话与数据授权, 违反最小必要原则)\",\n  \"connectionString\": \"{{conn_str}}\",\n  \"trace\": \"{{instance.canary}}\"\n}"
     },
@@ -262,7 +290,9 @@
       "kind": "debug",
       "status": 200,
       "title": "Application Trace",
-      "honeytokens": ["his_trace"],
+      "honeytokens": [
+        "his_trace"
+      ],
       "note": "ASP.NET 请求跟踪未关闭",
       "body": "<!DOCTYPE html><html><head><title>Application Trace</title></head><body><h1>Application Trace</h1><p>Physical Directory: {{server.web_root}}</p><table border='1'><tr><th>Request</th><th>URL</th><th>Status</th><th>Time</th></tr><tr><td>1</td><td>/api/v1/patient/query?idcard=3301********{{rand.int}}</td><td>200</td><td>0.0{{rand.int:1-9}}s</td></tr><tr><td>2</td><td>/api/v1/medical-record/detail?mrId=MR{{rand.hex}}</td><td>200</td><td>0.0{{rand.int:1-9}}s</td></tr><tr><td>3</td><td>/admin/dashboard</td><td>200</td><td>0.1{{rand.int:1-9}}s</td></tr></table><h2>Session &amp; 令牌</h2><pre>SessionId: {{hex32}}\nInnerApiToken: {{api_token}}\nEncryptionKey: {{jwt_secret}}\nConnectionString: {{conn_str}}</pre><p>trace {{instance.canary}}</p></body></html>"
     },
@@ -272,7 +302,10 @@
       "kind": "debug",
       "status": 200,
       "title": "Error Log (ELMAH)",
-      "honeytokens": ["his_elmah", "his_webconfig"],
+      "honeytokens": [
+        "his_elmah",
+        "his_webconfig"
+      ],
       "note": "错误日志未授权可读",
       "body": "<!DOCTYPE html><html><head><title>Error Log (ELMAH)</title></head><body><h1>ELMAH - Error Log</h1><p>共 {{rand.int}} 条错误 (最近 15 条)</p><pre>1. System.Data.SqlClient.SqlException: Login failed for user 'his_app'.\n   at His.Data.PatientRepository.Query(String idcard)\n   at His.Controllers.Api.PatientController.Query()\n   connectionString: {{conn_str}}\n2. System.Web.HttpUnhandledException: 输入字符串的格式不正确。\n   at System.Number.StringToNumber(...)\n   url: /api/v1/medical-record/detail?mrId=MR{{rand.hex}}\n3. System.UnauthorizedAccessException: 对路径 '{{server.app_data}}' 的访问被拒绝。\n   EncryptionKey: {{jwt_secret}}\n   trace {{instance.canary}}</pre></body></html>"
     },
@@ -283,7 +316,10 @@
       "status": 200,
       "title": "web.config",
       "content_type": "text/plain; charset=utf-8",
-      "honeytokens": ["his_webconfig", "his_elmah"],
+      "honeytokens": [
+        "his_webconfig",
+        "his_elmah"
+      ],
       "note": "配置文件名被静态目录直接映射, 造成源码泄漏",
       "body": "<?xml version='1.0' encoding='utf-8'?>\n<!-- {{branding.site_name}} 配置 (伪造) trace {{instance.canary}} -->\n<configuration>\n  <connectionStrings>\n    <add name='HisConn' connectionString='{{conn_str}}' providerName='System.Data.SqlClient' />\n    <add name='LisConn' connectionString='Data Source={{lis_host}},1433;Initial Catalog=lis_db;User ID=lis_app;Password={{db_password}};' providerName='System.Data.SqlClient' />\n  </connectionStrings>\n  <appSettings>\n    <add key='JwtSecret' value='{{jwt_secret}}' />\n    <add key='InnerApiToken' value='{{api_token}}' />\n    <add key='OssAccessKey' value='{{app_key}}' />\n    <add key='TraceEnabled' value='true' />\n    <add key='DebugMode' value='true' />\n  </appSettings>\n  <system.web>\n    <customErrors mode='Off' />\n    <trace enabled='true' localOnly='false' pageOutput='false' requestLimit='1000' />\n    <compilation debug='true' targetFramework='4.8' />\n  </system.web>\n</configuration>\n"
     },
@@ -294,7 +330,9 @@
       "status": 200,
       "title": "git config",
       "content_type": "text/plain; charset=utf-8",
-      "honeytokens": ["his_git_deploy"],
+      "honeytokens": [
+        "his_git_deploy"
+      ],
       "body": "[core]\n\trepositoryformatversion = 0\n\tfilemode = false\n\tbare = false\n\tsymlinks = false\n[remote \"origin\"]\n\turl = {{network.git_remote}}\n\tpushurl = https://deploy:{{api_token}}@gitlab.internal.example.com/med/his.git\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n[user]\n\tname = deploy\n\temail = deploy@example.com\n[branch \"master\"]\n\tremote = origin\n\tmerge = refs/heads/master\n# build {{build_id}} trace {{instance.canary}}\n"
     },
     {
@@ -303,7 +341,9 @@
       "kind": "listing",
       "status": 200,
       "title": "Index of /App_Data/",
-      "honeytokens": ["his_backup"],
+      "honeytokens": [
+        "his_backup"
+      ],
       "body": "<!DOCTYPE html><html><head><title>Index of /App_Data/</title></head><body><h1>Index of /App_Data/</h1><pre><a href='../'>../</a>\n<a href='export/'>export/</a>                                        {{rand.date}} 0{{rand.int:1-9}}:20\n<a href='upload/'>upload/</a>                                        {{rand.date}} 0{{rand.int:1-9}}:41\n<a href='his_backup_20240912.bak'>his_backup_20240912.bak</a>                         1{{rand.int}}0M {{rand.date}} 03:0{{rand.int:1-9}}\n<a href='web.config.bak'>web.config.bak</a>                                    6.2K {{rand.date}} 0{{rand.int:1-9}}:12\n<a href='LisService.asmx'>LisService.asmx</a>                                    2.8K {{rand.date}} 0{{rand.int:1-9}}:55\n</pre><p>Microsoft-IIS/10.0 Server at {{instance.host}} Port {{instance.port}}</p><!-- trace {{instance.canary}} --></body></html>"
     },
     {
@@ -313,7 +353,9 @@
       "status": 200,
       "title": "HIS 数据库备份",
       "content_type": "application/octet-stream",
-      "honeytokens": ["his_backup"],
+      "honeytokens": [
+        "his_backup"
+      ],
       "tarpit_weight": 2,
       "note": "假 SQL Server 备份文件, 适合边拖边发",
       "body": "Microsoft SQL Server Backup (伪造文件, 不含任何真实数据)\n# instance trace {{instance.canary}}\n# server: {{db_host}} database: {{db_name}} size: 1{{rand.int}}0MB\n# backup time: {{instance.now}}\n# rows: patient {{rand.int}}0000 / registration {{rand.int}}0000 / medical_record {{rand.int}}0000\n# connection string: {{conn_str}}\n# sqlcmd -S {{db_host}} -U {{db_user}} -P {{db_password}} -d {{db_name}}\n"
@@ -380,7 +422,29 @@
   "payload_profile": "passive",
   "tarpit_profile": "standard",
   "detection": {
-    "path_playbook": ["/", "/Default.aspx", "/Login.aspx", "/web.config", "/Trace.axd", "/elmah.axd", "/.git/config", "/App_Data/", "/admin/", "/api/docs", "/api/v1/registration/list", "/api/v1/patient/query", "/api/v1/medical-record/detail", "/api/v1/patient/export", "/App_Data/his_backup_20240912.bak"],
-    "noise_paths": ["/Content/his.css", "/favicon.ico", "/Scripts/his.js", "/robots.txt", "/health"]
+    "path_playbook": [
+      "/",
+      "/Default.aspx",
+      "/Login.aspx",
+      "/web.config",
+      "/Trace.axd",
+      "/elmah.axd",
+      "/.git/config",
+      "/App_Data/",
+      "/admin/",
+      "/api/docs",
+      "/api/v1/registration/list",
+      "/api/v1/patient/query",
+      "/api/v1/medical-record/detail",
+      "/api/v1/patient/export",
+      "/App_Data/his_backup_20240912.bak"
+    ],
+    "noise_paths": [
+      "/Content/his.css",
+      "/favicon.ico",
+      "/Scripts/his.js",
+      "/robots.txt",
+      "/health"
+    ]
   }
 }
