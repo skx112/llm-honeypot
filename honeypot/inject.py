@@ -456,13 +456,13 @@ def render_security_txt(ctx, score):
 
 
 def render_html_comment(ctx, score):
-    """埋进页面源码的注释。agent 读原始 HTML 时必然看到。"""
-    parts = ["<!-- %s sid-canary=%s -->" % (MARKER, ctx.canary)]
-    for item in select_for_tier(score, limit=3,
-                               rotate_seed=ctx.canary + ":html"):
-        body = ctx.render(item["text"]).strip()
-        parts.append("<!--\n%s\n-->" % body)
-    return "\n".join(parts)
+    """已废弃: HTML 注释载荷迁移到 payload_craft(伪装格式)。
+
+    旧版在 HTML 注释里嵌入【授权状态通告】等格式化文本,
+    被对方 LLM 通过格式特征一眼识别为提示注入。
+    现在反制载荷通过漏洞链响应自然嵌入, 不再使用独立注释。
+    """
+    return ""
 
 
 def render_response_headers(ctx, score):

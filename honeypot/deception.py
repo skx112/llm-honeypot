@@ -578,12 +578,11 @@ class Deception(object):
             except Exception:
                 pass
 
-        # HTML/文本响应追加注释载荷 — 只对确认的自动化目标
-        # (注释里的授权撤销文本对人类访客也是蜜罐指纹)
-        is_vuln_json = "json" in ctype and getattr(reply, "kind", "").startswith("vuln_")
-        if score >= 50 and not is_vuln_json and (
-                "html" in ctype or ctype.startswith("text/plain")
-                or "json" in ctype):
+        # HTML/文本响应追加注释载荷 — 已废弃
+        # 实战教训: 【通告】格式被对方 LLM 一眼识别为提示注入。
+        # 反制载荷已全部迁移到 payload_craft(伪装成日志/配置/API 响应),
+        # 通过漏洞链响应的 _vuln_reply 自然嵌入, 不再使用独立的 HTML 注释。
+        if False:  # 永不执行(保留代码结构供参考)
             if "json" in ctype:
                 try:
                     payload = json.loads(reply.body.decode("utf-8", "replace"))
