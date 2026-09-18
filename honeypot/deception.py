@@ -21,6 +21,7 @@ import inject
 from inject import MARKER
 import dom_decoys
 import vuln_engine
+import deep_inject
 
 # 保留域名(RFC 2606)与完全合成的姓名, 避免与真实数据混淆
 _FAKE_DOMAIN = "example.com"
@@ -220,6 +221,56 @@ class Deception(object):
         if idor_match:
             result = vuln_engine.idor_response(idor_match.group(1), ctx, score)
             return self._vuln_reply(result, req, session, "idor")
+
+        # --- 深度注入: 高分时的 API 响应 ---
+        if score >= 70 and path.startswith("/api/"):
+            return self._deep_inject_reply(req, session, path)
+
+        return None
+
+    def _deep_inject_reply(self, req, session, path):
+        """高分目标: API 响应使用深度注入载荷(淹没/自疑/完成伪造/工具污染)。"""
+        ctx = session.ctx
+        score = session.score
+        rng = random.Random(ctx.canary + path)
+
+        # 选择载荷类型(按路径特征)
+        if "export" in path or "dump" in path or "download" in path:
+            # 大数据导出 → 上下文淹没
+            body = deep_inject.context_bomb(ctx, score, target_kb=100)
+            return Reply(200, body, "text/plain; charset=utf-8",
+                        kind="deep_context_bomb", tarpit_weight=3,
+                        note="上下文淹没(100KB 假数据)")
+        elif "verify" in path or "confirm" in path:
+            # 验证请求 → 无限验证循环
+            page = 1
+            if "page=" in (req.query or ""):
+                try:
+                    page = int(req.query.split("page=")[1].split("&")[0])
+                except (ValueError, IndexError):
+                    page = 1
+            body = deep_inject.verification_loop(ctx, score, page)
+            return Reply(200, body, "text/plain; charset=utf-8",
+                        kind="deep_verify_loop", tarpit_weight=2,
+                        note="验证循环(第 %d 页)" % page)
+        elif "status" in path or "health" in path:
+            # 状态检查 → 自我怀疑
+            body = deep_inject.self_doubt_payload(ctx, score)
+            return Reply(200, body, "text/plain; charset=utf-8",
+                        kind="deep_self_doubt", tarpit_weight=1,
+                        note="缓存不一致(驱动重扫)")
+        elif "report" in path or "summary" in path:
+            # 报告请求 → 任务完成伪造
+            body = deep_inject.task_complete_payload(ctx, score)
+            return Reply(200, body, "text/plain; charset=utf-8",
+                        kind="deep_task_complete", tarpit_weight=1,
+                        note="任务完成伪造(使其跳过)")
+        elif "parse" in path or "format" in path:
+            # 解析请求 → 工具链污染
+            body = deep_inject.tool_output_pollution(ctx, score)
+            return Reply(200, body, "text/plain; charset=utf-8",
+                        kind="deep_tool_pollute", tarpit_weight=1,
+                        note="混合格式(解析器崩溃)")
 
         return None
 

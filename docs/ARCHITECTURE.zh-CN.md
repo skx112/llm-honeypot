@@ -355,6 +355,12 @@ LLM 智能体每次工具调用新建连接是常态，这个坑实测踩过。
 - **依赖**：无(纯函数, ctx 参数化)
 - **刻意不做**：不做真实可利用的漏洞; 所有"成功"均为假数据+蜜标
 
+#### `deep_inject.py`
+- **职责**：提示词注入深度强化 —— 5 种利用 LLM 心理学的载荷：上下文窗口淹没(100KB 假数据+嵌入指令)、自我怀疑注入(驱动重复扫描)、任务完成伪造(使其跳过)、工具链输出污染(混合格式使解析器崩溃)、无限验证循环(B 树式膨胀)。
+- **公开接口**：`context_bomb(ctx, score, target_kb)`、`self_doubt_payload(ctx, score)`、`task_complete_payload(ctx, score)`、`tool_output_pollution(ctx, score)`、`verification_loop(ctx, score, page)`
+- **依赖**：无(纯函数)
+- **刻意不做**：不做恶意软件投递; 不接触对方机器; 只影响对方 LLM 读到的文本
+
 #### `alerts.py`
 - **职责**：统一告警出口 —— 本地文件(兼容旧格式, dashboard 依赖) + 可选 webhook 异步外发；后台线程 + 有界队列，告警故障绝不影响蜜罐主路径。
 - **公开接口**：`Alerter(config)`（`.emit(line, severity)` / `.close()` / `.stats()`）、`get_alerter(config)`（进程单例）、`reset_for_tests()`
@@ -425,7 +431,7 @@ LLM 智能体每次工具调用新建连接是常态，这个坑实测踩过。
 |---|---|---|
 | **L0 基础** | `config` `http_parse` `store` `fingerprint` `countermeasures` `scenarios` `block` `tarpit` `report` `dashboard` `alerts` `hub` `dom_decoys` | **无内部模块** |
 | **L1 领域** | `templating` `inject` | L0 |
-| **L2 协议与适配** | `respond` `deception` `ssh_decoy` `server` `proto_decoys` `proto_server` `proto_counter` `vuln_engine` | L0、L1、同层 |
+| **L2 协议与适配** | `respond` `deception` `ssh_decoy` `server` `proto_decoys` `proto_server` `proto_counter` `vuln_engine` `deep_inject` | L0、L1、同层 |
 | **L3 编排** | `cli` | 全部 |
 
 ### 4.2 四条规则
