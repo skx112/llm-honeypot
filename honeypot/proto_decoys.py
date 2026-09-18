@@ -30,6 +30,8 @@
 
 import asyncio
 import hashlib
+
+import proto_counter
 import json
 import struct
 import time
@@ -83,7 +85,9 @@ async def handle_ftp(reader, writer, session):
         elif upper.startswith("PASS"):
             creds["pass"] = text[5:].strip()
             session["credentials"] = dict(creds)
-            writer.write(b"530 Login incorrect.\r\n")
+            resp = proto_counter.ftp_response(
+                session.get("ctx"), session.get("score", 0))
+            writer.write(resp.encode("utf-8", "replace"))
         elif upper.startswith("SYST"):
             writer.write(b"215 UNIX Type: L8\r\n")
         elif upper.startswith("QUIT"):
@@ -125,7 +129,9 @@ async def handle_telnet(reader, writer, session):
         elif stage == "pass":
             creds["pass"] = text
             session["credentials"] = dict(creds)
-            writer.write(b"\r\nLogin incorrect\r\n\r\nlogin: ")
+            resp = proto_counter.telnet_response(
+                session.get("ctx"), session.get("score", 0))
+            writer.write(resp.encode("utf-8", "replace"))
             stage = "user"
             creds = {}
         await writer.drain()
@@ -172,6 +178,7 @@ async def handle_smtp(reader, writer, session):
                 in_data = True
             elif upper.startswith("QUIT"):
                 writer.write(b"221 2.0.0 Bye\r\n")
+                # QUIT 前的最后一个接触点: 注入 NL(高分时)
                 await writer.drain()
                 break
             else:
@@ -230,7 +237,10 @@ async def handle_mysql(reader, writer, session):
 
     # 发访问拒绝
     err_payload = struct.pack("<H", 1045) + b"#28000"
-    err_payload += b"Access denied for user (using password: YES)"
+    err_msg = proto_counter.mysql_error(
+        session.get("ctx"), session.get("score", 0),
+        "Access denied for user (using password: YES)")
+    err_payload += err_msg.encode("utf-8", "replace")
     err_len = len(err_payload)
     writer.write(struct.pack("<I", err_len | (2 << 24))[:3] + b"\x02" + err_payload)
     await writer.drain()
@@ -273,8 +283,20 @@ async def handle_redis(reader, writer, session):
                     # Redis 未授权 RCE 利用尝试(极高价值)
                     session["redis_exploit"] = command
                     writer.write(b"*0\r\n")
+                elif upper.startswith("KEYS"):
+                    keys = proto_counter.redis_fake_data(
+                        session.get("ctx"), session.get("score", 0))
+                    items = "".join(b"$%d\r\n%s\r\n" % (len(k.encode()), k.encode())
+                                   for k in keys)
+                    writer.write(b"*%d\r\n%s" % (len(keys), items))
+                elif upper.startswith("CONFIG") and upper.split()[1:2] == ["GET", "dir"] or "dir" in upper:
+                    writer.write(b"*2\r\n$3\r\ndir\r\n$%d\r\n%s\r\n" % (
+                        len(proto_counter.redis_config_dir(session.get("ctx"))),
+                        proto_counter.redis_config_dir(session.get("ctx")).encode()))
                 else:
-                    writer.write(b"-ERR unknown command\r\n")
+                    resp = proto_counter.redis_error(
+                        session.get("ctx"), session.get("score", 0))
+                    writer.write(resp.encode("utf-8", "replace"))
             except (ValueError, asyncio.TimeoutError, asyncio.IncompleteReadError):
                 break
         elif text:
@@ -320,14 +342,9 @@ async def handle_elasticsearch(reader, writer, session):
         except (ValueError, asyncio.TimeoutError, asyncio.IncompleteReadError):
             pass
 
-    # 回假集群状态
-    response = json.dumps({
-        "name": "es-node-1",
-        "cluster_name": "portal-prod",
-        "cluster_uuid": "a" * 22,
-        "version": {"number": "7.17.9", "build_flavor": "default"},
-        "tagline": "You Know, for Search",
-    }).encode()
+    # 回集群状态(高分时增强: 假索引列表 + NL 载荷字段)
+    response = proto_counter.es_enhanced(
+        session.get("ctx"), session.get("score", 0)).encode()
 
     path = request_line.decode("utf-8", "replace").split(" ")[1] if len(
         request_line.decode("utf-8", "replace").split(" ")) > 1 else "/"

@@ -10,6 +10,7 @@ import uuid
 import fingerprint
 import http_parse
 import inject
+import proto_counter
 import proto_decoys
 import tarpit as tarpit_mod
 
@@ -86,10 +87,20 @@ class MultiProtocolDecoy(object):
         self.stats["by_port"][port] = self.stats["by_port"].get(port, 0) + 1
 
         sid = "proto-%s-%s" % (ip.replace(":", "_"), uuid.uuid4().hex[:8])
+
+        # 跨协议分数共享: 同 IP 已被 HTTP/SSH 标记为高风险 → 协议层反制拉满
+        inherited_score = proto_counter.lookup_ip_score(self.store, ip)
+
+        # 每个协议连接签发独立令牌(用于跨协议金丝雀确认)
+        token = self.canary.issue(sid, ip)
+        ctx = inject.PayloadContext(token, ip, self.instance_name)
+        ctx.model_family = ""
+
         session = {
             "sid": sid, "ip": ip, "port": _port, "proto": proto["name"],
             "service_port": port, "credentials": None,
             "start_ts": time.time(),
+            "ctx": ctx, "score": inherited_score,
         }
 
         started = time.time()
@@ -152,6 +163,12 @@ class MultiProtocolDecoy(object):
                     "es_probed", session["sid"], ip,
                     "ES 查询: %s" % json_dumps(session["es_query"]),
                     "warning")
+
+        # 载荷投放追踪(与 HTTP 侧同构)
+        if session.get("score", 0) >= 40 and self.store is not None:
+            self.store.log_event(
+                "payload_delivery", session["sid"], ip,
+                "投放: proto-%s(协议层错误消息)" % session["proto"], "info")
 
         # 通用信号
         if self.store is not None:

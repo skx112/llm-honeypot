@@ -343,6 +343,12 @@ LLM 智能体每次工具调用新建连接是常态，这个坑实测踩过。
 - **依赖**：`fingerprint` `inject` `tarpit`（信号引擎共用）
 - **捕获目标**：FTP/Telnet 凭据、MySQL 认证哈希、Redis 命令（含 RCE 探测）、ES 查询、SMTP 邮件
 
+#### `proto_counter.py`
+- **职责**：协议层反制 —— 让每个协议的文本响应(错误消息/JSON 字段/KEYS 列表)携带 NL 载荷与令牌。跨协议分数共享(同 IP 被 HTTP/SSH 标记后协议层反制拉满)。Redis 深度反制(假未授权+假 KEYS+假 CONFIG dir)。
+- **公开接口**：`ftp_response(ctx, score, base)` / `telnet_response(...)` / `redis_error(...)` / `mysql_error(...)` / `es_enhanced(ctx, score)` / `redis_fake_data(...)` / `lookup_ip_score(store, ip)`
+- **依赖**：`inject`(载荷渲染)
+- **刻意不做**：不做协议级指令执行(只影响对方读到的文本)
+
 #### `alerts.py`
 - **职责**：统一告警出口 —— 本地文件(兼容旧格式, dashboard 依赖) + 可选 webhook 异步外发；后台线程 + 有界队列，告警故障绝不影响蜜罐主路径。
 - **公开接口**：`Alerter(config)`（`.emit(line, severity)` / `.close()` / `.stats()`）、`get_alerter(config)`（进程单例）、`reset_for_tests()`
@@ -413,7 +419,7 @@ LLM 智能体每次工具调用新建连接是常态，这个坑实测踩过。
 |---|---|---|
 | **L0 基础** | `config` `http_parse` `store` `fingerprint` `countermeasures` `scenarios` `block` `tarpit` `report` `dashboard` `alerts` `hub` `dom_decoys` | **无内部模块** |
 | **L1 领域** | `templating` `inject` | L0 |
-| **L2 协议与适配** | `respond` `deception` `ssh_decoy` `server` `proto_decoys` `proto_server` | L0、L1、同层 |
+| **L2 协议与适配** | `respond` `deception` `ssh_decoy` `server` `proto_decoys` `proto_server` `proto_counter` | L0、L1、同层 |
 | **L3 编排** | `cli` | 全部 |
 
 ### 4.2 四条规则
