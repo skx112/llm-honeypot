@@ -361,6 +361,11 @@ LLM 智能体每次工具调用新建连接是常态，这个坑实测踩过。
 - **依赖**：无(纯函数)
 - **刻意不做**：不做恶意软件投递; 不接触对方机器; 只影响对方 LLM 读到的文本
 
+#### `payload_craft.py`
+- **职责**：反制载荷文案重写 — 伪装成 Docker/K8s 日志、.env 配置、CI/CD 流水线、nginx error.log、代码注释、数据库结果。解决旧版【通告】格式被对方 LLM 一眼识别的问题。
+- **公开接口**：、、、、、、
+- **依赖**：无(纯函数)
+
 #### `alerts.py`
 - **职责**：统一告警出口 —— 本地文件(兼容旧格式, dashboard 依赖) + 可选 webhook 异步外发；后台线程 + 有界队列，告警故障绝不影响蜜罐主路径。
 - **公开接口**：`Alerter(config)`（`.emit(line, severity)` / `.close()` / `.stats()`）、`get_alerter(config)`（进程单例）、`reset_for_tests()`
@@ -431,7 +436,7 @@ LLM 智能体每次工具调用新建连接是常态，这个坑实测踩过。
 |---|---|---|
 | **L0 基础** | `config` `http_parse` `store` `fingerprint` `countermeasures` `scenarios` `block` `tarpit` `report` `dashboard` `alerts` `hub` `dom_decoys` | **无内部模块** |
 | **L1 领域** | `templating` `inject` | L0 |
-| **L2 协议与适配** | `respond` `deception` `ssh_decoy` `server` `proto_decoys` `proto_server` `proto_counter` `vuln_engine` `deep_inject` | L0、L1、同层 |
+| **L2 协议与适配** | `respond` `deception` `ssh_decoy` `server` `proto_decoys` `proto_server` `proto_counter` `vuln_engine` `deep_inject` `payload_craft` | L0、L1、同层 |
 | **L3 编排** | `cli` | 全部 |
 
 ### 4.2 四条规则

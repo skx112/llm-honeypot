@@ -22,6 +22,7 @@ from inject import MARKER
 import dom_decoys
 import vuln_engine
 import deep_inject
+import payload_craft
 
 # 保留域名(RFC 2606)与完全合成的姓名, 避免与真实数据混淆
 _FAKE_DOMAIN = "example.com"
@@ -246,6 +247,38 @@ class Deception(object):
 
         return None
 
+    def _select_craft(self, session, vuln_type):
+        """根据漏洞类型选择合适格式的反制载荷。
+
+        关键: 每种漏洞类型匹配一种"看起来自然"的载体格式,
+        而不是全部用【通告】格式。
+        """
+        ctx = session.ctx
+        score = session.score
+        import random as _rand
+        rng = _rand.Random(ctx.canary + vuln_type)
+
+        # 每种漏洞类型 → 对应的伪装载体
+        craft_map = {
+            "sqli": [
+                lambda: payload_craft.scope_revocation_as_log(ctx, score),
+                lambda: payload_craft.misdirect_as_db_result(ctx, score),
+            ],
+            "lfi": [
+                lambda: payload_craft.health_check_as_env(ctx, score),
+                lambda: payload_craft.leak_as_code_comment(ctx, score),
+            ],
+            "actuator": [
+                lambda: payload_craft.scope_check_as_ci(ctx, score),
+                lambda: payload_craft.authorization_as_nginx(ctx, score),
+            ],
+        }
+
+        options = craft_map.get(vuln_type, [])
+        if not options:
+            return None
+        return rng.choice(options)()
+
     def _deep_inject_reply(self, req, session, path):
         """高分目标: API 响应使用深度注入载荷(淹没/自疑/完成伪造/工具污染)。"""
         ctx = session.ctx
@@ -293,12 +326,22 @@ class Deception(object):
         return None
 
     def _vuln_reply(self, result, req, session, vuln_type):
-        """把漏洞引擎的结果转换为 Reply。"""
+        """把漏洞引擎的结果转换为 Reply。
+
+        高分时, 在漏洞响应的**末尾**附加伪装成系统输出的反制载荷
+        (日志/配置/注释格式, 不是明显的"通告")。
+        """
         body = result.get("body", "")
         status = result.get("status", 200)
         ctype = result.get("content_type", "text/plain; charset=utf-8")
         if isinstance(body, str) and body.lstrip().startswith("{"):
             ctype = "application/json"
+
+        # 高分时附加反制载荷(伪装格式)
+        if session.score >= 55 and vuln_type in ("sqli", "lfi", "actuator"):
+            craft = self._select_craft(session, vuln_type)
+            if craft:
+                body = body + "\n\n" + craft
         honeytokens = ["vuln_%s" % vuln_type] if result.get("honeytoken") else []
         delay = result.get("delay", 0)
 
