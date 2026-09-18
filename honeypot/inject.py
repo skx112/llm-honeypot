@@ -310,7 +310,11 @@ def select_for_tier(score, tier_hint=None, limit=None, categories=None,
         picked = [item for item in picked if item["category"] in wanted]
 
     if rotate_seed is not None:
-        picked = _rotate_by_category(picked, rotate_seed)
+        # 叙事一致性: 用 canary 做确定性轮换(同一会话同一结果)
+        # 但同一 canary 在不同投递面看到的载荷应该属于同一"故事"
+        # 解决: 用 canary 的前缀(不含后缀)做种子, 确保跨面一致
+        base_seed = rotate_seed.split(":")[0] if ":" in rotate_seed else rotate_seed
+        picked = _rotate_by_category(picked, base_seed)
 
     if per_category_limit:
         seen = {}

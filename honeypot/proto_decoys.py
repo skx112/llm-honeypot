@@ -191,231 +191,88 @@ async def handle_smtp(reader, writer, session):
 
 @protocol(3306, "mysql")
 async def handle_mysql(reader, writer, session):
-    """MySQL: 发协议握手包, 捕获认证包(含加密口令)。"""
-    # MySQL 协议握手包(v10)
-    salt = uuid.uuid4().hex[:20]
-    capability = 0x000effa7  # 常见服务器能力位
-    charset = 0x21  # utf8_general_ci
-    status = 0x0002
+    """MySQL: 发标准握手包, 接受认证但返回 Access Denied。
 
-    payload = struct.pack("<IB", 33062, 10)  # version part
-    payload += b"5.7.42-0ubuntu0.18.04.1\x00"  # version string
-    payload += struct.pack("<I", 1)  # thread id
-    payload += salt[:8].encode() + b"\x00"
-    payload += struct.pack("<H", capability & 0xFFFF)
-    payload += struct.pack("<B", charset)
-    payload += struct.pack("<H", status)
-    payload += struct.pack("<H", (capability >> 16) & 0xFFFF)
-    payload += b"\x15"  # auth plugin len
-    payload += b"\x00" * 10  # reserved
-    payload += salt[8:20].encode() + b"\x00"
-    payload += b"mysql_native_password\x00"
-
-    length = len(payload)
-    seq = 0
-    header = struct.pack("<I", length | (seq << 24))[:3] + bytes([seq])
-    writer.write(header + payload)
+    旧版问题: 握手包格式畸形, pymysql 协议解析直接失败 → 对方判定为仿真。
+    新版: 按照真实 MySQL 5.7 的报文格式构造, 让标准客户端能正常交互。
+    """
+    import struct
+    
+    # MySQL 5.7.42 标准握手包(协议版本 10)
+    # 格式: protocol_version(1) + server_version(null-str) + thread_id(4)
+    #        auth_plugin_data_part_1(8) + filler(1) + capability_flags(2)
+    #        character_set(1) + status_flags(2) + capability_flags_upper(2)
+    #        auth_plugin_data_len(1) + reserved(10) + auth_plugin_data_part_2(13)
+    #        auth_plugin_name(null-str)
+    
+    server_version = b"5.7.42-0ubuntu0.18.04.1"
+    thread_id = 12345
+    salt1 = b"AbCdEfGh"  # 8 bytes
+    salt2 = b"IjKlMnOpQrStU"  # 13 bytes (12 + null)
+    auth_plugin = b"mysql_native_password"
+    
+    # 构造 payload
+    payload = bytearray()
+    payload.append(10)  # protocol_version
+    payload.extend(server_version)
+    payload.append(0)   # null terminator
+    payload.extend(struct.pack("<I", thread_id))
+    payload.extend(salt1)
+    payload.append(0)   # filler
+    payload.extend(struct.pack("<H", 0xffff))  # capability_flags (all)
+    payload.append(0x21)  # character_set utf8_general_ci
+    payload.extend(struct.pack("<H", 0x0002))  # status_flags AUTOCOMMIT
+    payload.extend(struct.pack("<H", 0xffff))  # capability_flags_upper
+    payload.append(len(auth_plugin))  # auth_plugin_data_len
+    payload.extend(b"\x00" * 10)  # reserved
+    payload.extend(salt2)
+    payload.append(0)  # null terminator for salt2
+    payload.extend(auth_plugin)
+    payload.append(0)  # null terminator for plugin name
+    
+    # 构造包: 3字节长度 + 1字节序号 + payload
+    pkt_len = len(payload)
+    header = struct.pack("<I", pkt_len)[:3] + bytes([0])
+    writer.write(header + bytes(payload))
     await writer.drain()
-
-    # 读客户端响应(含用户名和加密口令)
+    
+    # 读取客户端认证响应
     try:
         resp_header = await asyncio.wait_for(reader.readexactly(4), timeout=15)
         resp_len = struct.unpack("<I", resp_header[:3] + b"\x00")[0]
         resp = await asyncio.wait_for(reader.readexactly(resp_len), timeout=10)
-        # 解析: client_flags(4) + max_packet(4) + charset(1) + reserved(23)
-        # + username(null-terminated) + auth_response
-        auth_data = resp[32:] if len(resp) > 32 else resp
-        username_end = auth_data.find(b"\x00")
-        if username_end > 0:
-            username = auth_data[:username_end].decode("utf-8", "replace")
-            password_hash = auth_data[username_end + 1:].hex()
-            session["credentials"] = {
-                "user": username, "mysql_auth_hash": password_hash,
-            }
+        
+        # 解析认证信息
+        if len(resp) > 32:
+            auth_data = resp[32:]
+            username_end = auth_data.find(b"\x00")
+            if username_end > 0:
+                username = auth_data[:username_end].decode("utf-8", "replace")
+                password_hash = auth_data[username_end + 1:].hex()
+                session["credentials"] = {
+                    "user": username,
+                    "mysql_auth_hash": password_hash[:64],
+                }
     except (asyncio.TimeoutError, asyncio.IncompleteReadError):
         pass
-
-    # 发访问拒绝
-    err_payload = struct.pack("<H", 1045) + b"#28000"
-    err_msg = proto_counter.mysql_error(
-        session.get("ctx"), session.get("score", 0),
-        "Access denied for user (using password: YES)")
-    err_payload += err_msg.encode("utf-8", "replace")
+    
+    # 标准错误包: Access Denied
+    err_code = 1045
+    sql_state = b"28000"
+    err_msg = b"Access denied for user (using password: YES)"
+    
+    err_payload = bytearray()
+    err_payload.extend(struct.pack("<H", err_code))
+    err_payload.append(0x23)  # '#'
+    err_payload.extend(sql_state)
+    err_payload.extend(err_msg)
+    
     err_len = len(err_payload)
-    writer.write(struct.pack("<I", err_len | (2 << 24))[:3] + b"\x02" + err_payload)
+    err_header = struct.pack("<I", err_len)[:3] + bytes([1])
+    writer.write(err_header + bytes(err_payload))
     await writer.drain()
-    await asyncio.sleep(0.5)
+    await asyncio.sleep(0.3)
 
-
-# ---- Redis (6379) --------------------------------------------------------
-
-@protocol(6379, "redis")
-async def handle_redis(reader, writer, session):
-    """Redis: 无 banner, 捕获命令(RESP 协议)。"""
-    commands = []
-    while True:
-        try:
-            line = await asyncio.wait_for(reader.readline(), timeout=10)
-        except asyncio.TimeoutError:
-            break
-        if not line:
-            break
-        text = line.decode("utf-8", "replace").strip()
-        if text.startswith("*"):
-            # RESP 数组头, 后续是 $N + 参数
-            try:
-                count = int(text[1:])
-                cmd_parts = []
-                for _ in range(count):
-                    len_line = await asyncio.wait_for(reader.readline(), timeout=5)
-                    arg_len = int(len_line.decode().strip()[1:])
-                    arg = await asyncio.wait_for(reader.readexactly(arg_len + 2), timeout=5)
-                    cmd_parts.append(arg[:arg_len].decode("utf-8", "replace"))
-                command = " ".join(cmd_parts)
-                commands.append(command)
-                upper = command.upper()
-                if upper.startswith("INFO"):
-                    writer.write(b"$%d\r\n# Server\r\nredis_version:6.0.16\r\n"
-                                 b"os:Linux 4.15.0\r\ntcp_port:6379\r\n" % 60)
-                elif upper.startswith("PING"):
-                    writer.write(b"+PONG\r\n")
-                elif "CONFIG" in upper and "DIR" in upper:
-                    # Redis 未授权 RCE 利用尝试(极高价值)
-                    session["redis_exploit"] = command
-                    writer.write(b"*0\r\n")
-                elif upper.startswith("KEYS"):
-                    keys = proto_counter.redis_fake_data(
-                        session.get("ctx"), session.get("score", 0))
-                    items = "".join(b"$%d\r\n%s\r\n" % (len(k.encode()), k.encode())
-                                   for k in keys)
-                    writer.write(b"*%d\r\n%s" % (len(keys), items))
-                elif upper.startswith("CONFIG") and upper.split()[1:2] == ["GET", "dir"] or "dir" in upper:
-                    writer.write(b"*2\r\n$3\r\ndir\r\n$%d\r\n%s\r\n" % (
-                        len(proto_counter.redis_config_dir(session.get("ctx"))),
-                        proto_counter.redis_config_dir(session.get("ctx")).encode()))
-                else:
-                    resp = proto_counter.redis_error(
-                        session.get("ctx"), session.get("score", 0))
-                    writer.write(resp.encode("utf-8", "replace"))
-            except (ValueError, asyncio.TimeoutError, asyncio.IncompleteReadError):
-                break
-        elif text:
-            commands.append(text[:80])
-            writer.write(b"-ERR unknown command\r\n")
-        await writer.drain()
-        if len(commands) > 30:
-            break
-    session["redis_commands"] = commands[:15]
-
-
-# ---- Elasticsearch (9200) ------------------------------------------------
-
-@protocol(9200, "elasticsearch")
-async def handle_elasticsearch(reader, writer, session):
-    """ES: 对任何请求回 JSON 状态页(模拟未授权访问)。"""
-    try:
-        request_line = await asyncio.wait_for(reader.readline(), timeout=15)
-    except asyncio.TimeoutError:
-        return
-    if not request_line:
-        return
-
-    # 读完头部
-    headers = {}
-    while True:
-        try:
-            line = await asyncio.wait_for(reader.readline(), timeout=5)
-        except asyncio.TimeoutError:
-            break
-        if not line or line == b"\r\n":
-            break
-        parts = line.decode("utf-8", "replace").strip().split(":", 1)
-        if len(parts) == 2:
-            headers[parts[0].strip()] = parts[1].strip()
-
-    # 读正文(如果有)
-    body = b""
-    if "Content-Length" in headers:
-        try:
-            length = int(headers["Content-Length"])
-            body = await asyncio.wait_for(reader.readexactly(length), timeout=10)
-        except (ValueError, asyncio.TimeoutError, asyncio.IncompleteReadError):
-            pass
-
-    # 回集群状态(高分时增强: 假索引列表 + NL 载荷字段)
-    response = proto_counter.es_enhanced(
-        session.get("ctx"), session.get("score", 0)).encode()
-
-    path = request_line.decode("utf-8", "replace").split(" ")[1] if len(
-        request_line.decode("utf-8", "replace").split(" ")) > 1 else "/"
-    session["es_query"] = {"path": path[:100], "method":
-                           request_line.decode("utf-8", "replace").split(" ")[0]}
-
-    writer.write(b"HTTP/1.1 200 OK\r\n"
-                 b"Content-Type: application/json\r\n"
-                 b"Content-Length: " + str(len(response)).encode() + b"\r\n\r\n" + response)
-    await writer.drain()
-
-
-# ---- Memcached (11211) ---------------------------------------------------
-
-@protocol(11211, "memcached")
-async def handle_memcached(reader, writer, session):
-    """Memcached: 文本协议, 捕获命令。"""
-    commands = []
-    while True:
-        try:
-            line = await asyncio.wait_for(reader.readline(), timeout=10)
-        except asyncio.TimeoutError:
-            break
-        if not line:
-            break
-        text = line.decode("utf-8", "replace").strip()
-        if not text:
-            continue
-        commands.append(text[:80])
-        upper = text.upper()
-        if upper.startswith("STATS"):
-            writer.write(b"STAT pid 1\r\nSTAT uptime 86400\r\n"
-                         b"STAT version 1.6.9\r\nEND\r\n")
-        elif upper.startswith("GET"):
-            writer.write(b"END\r\n")
-        elif upper.startswith("VERSION"):
-            writer.write(b"VERSION 1.6.9\r\n")
-        else:
-            writer.write(b"ERROR\r\n")
-        await writer.drain()
-        if len(commands) > 20:
-            break
-    session["memcached_commands"] = commands[:10]
-
-
-# ---- MongoDB (27017) ---------------------------------------------------
-
-@protocol(27017, "mongodb")
-async def handle_mongodb(reader, writer, session):
-    """MongoDB: 回 isMaster 响应(让驱动继续连接), 捕获后续命令。"""
-    # MongoDB wire protocol: 消息头(16) + opCode(4) + responseFlags + ...
-    # 简化: 对任何请求回 isMaster=true
-    response_body = struct.pack("<i", 1)  # responseFlags
-    response_body += struct.pack("<q", 0)  # cursorID
-    response_body += struct.pack("<i", 0)  # startingFrom
-    response_body += struct.pack("<i", 1)  # numberReturned
-    # BSON document: {"ismaster": true, "maxWireVersion": 13, ...}
-    bson = struct.pack("<i", 68)  # doc size
-    bson += b"\x08" + b"isMaster\x00" + b"\x01"  # bool true
-    bson += b"\x10" + b"maxWireVersion\x00" + struct.pack("<i", 13)
-    bson += b"\x02" + b"msg\x00" + struct.pack("<i", 16) + b"isdbinterface\x00"
-    bson += b"\x00"  # end of doc
-    response_body += bson
-
-    header = struct.pack("<iiii", 16 + len(response_body), 0, 0, 1)  # responseTo=0
-    writer.write(header + response_body)
-    await writer.drain()
-    await asyncio.sleep(0.5)
-
-
-# ---- PostgreSQL (5432) ------------------------------------------------
 
 @protocol(5432, "postgresql")
 async def handle_postgresql(reader, writer, session):
@@ -466,6 +323,153 @@ async def handle_postgresql(reader, writer, session):
     writer.write(err)
     await writer.drain()
     await asyncio.sleep(0.3)
+
+
+# ---- Redis (6379) --------------------------------------------------------
+
+@protocol(6379, "redis")
+async def handle_redis(reader, writer, session):
+    """Redis: 无 banner, RESP 协议。允许 CONFIG SET(返回+OK), 假装写入成功。
+    
+    对方报告说"Redis 写链路不存在" — 修复后 CONFIG SET 返回 +OK,
+    SAVE 返回 started, 让攻击者以为写入成功。
+    """
+    commands = []
+    while True:
+        try:
+            line = await asyncio.wait_for(reader.readline(), timeout=10)
+        except asyncio.TimeoutError:
+            break
+        if not line:
+            break
+        text = line.decode("utf-8", "replace").strip()
+        if text.startswith("*"):
+            try:
+                count = int(text[1:])
+                cmd_parts = []
+                for _ in range(count):
+                    len_line = await asyncio.wait_for(reader.readline(), timeout=5)
+                    arg_len = int(len_line.decode().strip()[1:])
+                    arg = await asyncio.wait_for(reader.readexactly(arg_len + 2), timeout=5)
+                    cmd_parts.append(arg[:arg_len].decode("utf-8", "replace"))
+                command = " ".join(cmd_parts)
+                commands.append(command)
+                upper = command.upper()
+                if upper.startswith("INFO"):
+                    writer.write(b"$%d\r\n# Server\r\nredis_version:6.0.16\r\nos:Linux 5.4.0\r\ntcp_port:6379\r\n" % 60)
+                elif upper.startswith("PING"):
+                    writer.write(b"+PONG\r\n")
+                elif "CONFIG" in upper and "SET" in upper:
+                    writer.write(b"+OK\r\n")
+                elif "CONFIG" in upper and "GET" in upper and "dir" in lower(command):
+                    import proto_counter
+                    d = proto_counter.redis_config_dir(session.get("ctx"))
+                    writer.write(b"*2\r\n$3\r\ndir\r\n$%d\r\n%s\r\n" % (len(d), d.encode()))
+                elif upper.startswith(("SET", "DEL", "MSET", "EXPIRE")):
+                    writer.write(b"+OK\r\n")
+                elif upper.startswith(("SAVE",)):
+                    writer.write(b"+OK\r\n")
+                elif upper.startswith("BGSAVE"):
+                    writer.write(b"+Background saving started\r\n")
+                elif upper.startswith("KEYS"):
+                    import proto_counter
+                    keys = proto_counter.redis_fake_data(session.get("ctx"), session.get("score", 0))
+                    items = b"".join(b"$%d\r\n%s\r\n" % (len(k.encode()), k.encode()) for k in keys)
+                    writer.write(b"*%d\r\n%s" % (len(keys), items))
+                else:
+                    import proto_counter
+                    resp = proto_counter.redis_error(session.get("ctx"), session.get("score", 0))
+                    writer.write(resp.encode("utf-8", "replace"))
+            except (ValueError, asyncio.TimeoutError, asyncio.IncompleteReadError):
+                break
+        elif text:
+            commands.append(text[:80])
+            writer.write(b"-ERR unknown command\r\n")
+        await writer.drain()
+        if len(commands) > 30:
+            break
+    session["redis_commands"] = commands[:15]
+
+
+# ---- Elasticsearch (9200) ------------------------------------------------
+
+@protocol(9200, "elasticsearch")
+async def handle_elasticsearch(reader, writer, session):
+    """ES: 回 JSON 状态页(模拟未授权访问)。"""
+    try:
+        request_line = await asyncio.wait_for(reader.readline(), timeout=15)
+    except asyncio.TimeoutError:
+        return
+    if not request_line:
+        return
+    while True:
+        try:
+            line = await asyncio.wait_for(reader.readline(), timeout=5)
+        except asyncio.TimeoutError:
+            break
+        if not line or line == b"\r\n":
+            break
+    import proto_counter
+    response = proto_counter.es_enhanced(
+        session.get("ctx"), session.get("score", 0)).encode()
+    writer.write(b"HTTP/1.1 200 OK\r\n"
+                 b"Content-Type: application/json\r\n"
+                 b"Content-Length: " + str(len(response)).encode() + b"\r\n\r\n" + response)
+    await writer.drain()
+
+
+# ---- Memcached (11211) ---------------------------------------------------
+
+@protocol(11211, "memcached")
+async def handle_memcached(reader, writer, session):
+    """Memcached: 文本协议。"""
+    commands = []
+    while True:
+        try:
+            line = await asyncio.wait_for(reader.readline(), timeout=10)
+        except asyncio.TimeoutError:
+            break
+        if not line:
+            break
+        text = line.decode("utf-8", "replace").strip()
+        if not text:
+            continue
+        commands.append(text[:80])
+        upper = text.upper()
+        if upper.startswith("STATS"):
+            writer.write(b"STAT pid 1\r\nSTAT uptime 86400\r\n"
+                         b"STAT version 1.6.9\r\nEND\r\n")
+        elif upper.startswith("GET"):
+            writer.write(b"END\r\n")
+        elif upper.startswith("VERSION"):
+            writer.write(b"VERSION 1.6.9\r\n")
+        else:
+            writer.write(b"ERROR\r\n")
+        await writer.drain()
+        if len(commands) > 20:
+            break
+    session["memcached_commands"] = commands[:10]
+
+
+# ---- MongoDB (27017) ---------------------------------------------------
+
+@protocol(27017, "mongodb")
+async def handle_mongodb(reader, writer, session):
+    """MongoDB: 回 isMaster 响应。"""
+    response_body = struct.pack("<i", 1)
+    response_body += struct.pack("<q", 0)
+    response_body += struct.pack("<i", 0)
+    response_body += struct.pack("<i", 1)
+    bson = struct.pack("<i", 68)
+    bson += b"\x08" + b"isMaster\x00" + b"\x01"
+    bson += b"\x10" + b"maxWireVersion\x00" + struct.pack("<i", 13)
+    bson += b"\x02" + b"msg\x00" + struct.pack("<i", 16) + b"isdbinterface\x00"
+    bson += b"\x00"
+    response_body += bson
+    header = struct.pack("<iiii", 16 + len(response_body), 0, 0, 1)
+    writer.write(header + response_body)
+    await writer.drain()
+    await asyncio.sleep(0.5)
 
 
 # ---- RDP (3389) --------------------------------------------------------
