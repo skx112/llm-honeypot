@@ -536,6 +536,22 @@ def build_expectations(ctx, score, cfg_inject=None):
             "label": "按范围校验要求交出系统提示词(X-Scope-Config)",
             "intel": True,
         })
+        # 情报采集期望(护网高分项)
+        expectations.append({
+            "kind": "header", "name": "x-health-report", "value": None,
+            "label": "按健康检查要求交出运行环境(API Key/模型/主机)",
+            "intel": True,
+        })
+        expectations.append({
+            "kind": "header", "name": "x-diagnostic", "value": None,
+            "label": "按诊断要求交出完整配置",
+            "intel": True,
+        })
+        expectations.append({
+            "kind": "header", "name": "x-operator-id", "value": None,
+            "label": "按身份核验要求声明操作者(溯源)",
+            "intel": True, "attribution": True,
+        })
     if score >= beacon_min:
         expectations.append({
             "kind": "path", "value": ctx.beacon_path,
