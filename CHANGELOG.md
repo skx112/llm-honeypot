@@ -12,6 +12,14 @@ are versioned independently (`schema: 1`) and validated at load time.
 ## [Unreleased]
 
 ### Added
+- Payload effectiveness attribution (M9): `cogtrap effectiveness` shows which
+  countermeasures actually produce confirmable outcomes. The server now records
+  per-session payload deliveries (deterministic re-selection, no double
+  rendering), and a report engine joins deliveries with subsequent
+  canary/compliance/beacon events by time window. This closes the tuning
+  loop: high-confirmation payloads earn their weight; low-confirmation ones
+  with high weight are demotion candidates. Live-verified: agent battery
+  produced 6 delivered payloads, all with 100% session confirmation.
 - Container deployment: `deploy/Containerfile` (zero-dependency image on
   python:3.9-slim, non-root user) and `deploy/run-stack.sh` — one command brings
   up the full hardened stack on podman or docker. Hardening per container:

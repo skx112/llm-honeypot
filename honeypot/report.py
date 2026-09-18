@@ -584,6 +584,95 @@ def write_report_bundle(config, store, report, stem=None):
     return paths, stem
 
 
+def payload_effectiveness(store):
+    """载荷效果归因: 哪些反制方式真的被服从了(M9 闭环)。
+
+    方法: 对每个会话, 取它投放过的载荷集合(payload_delivery 事件)与
+    确证事件集合(canary_echo / injection_compliance / beacon_callback),
+    按时间窗口(投放先于确证)统计"投放后有确证"的载荷 —— 即它的文本
+    确实被对方读进了上下文并引发了可观测行为。
+
+    这是权重调优的数据基础: 没有这个闭环, 反制库的 weight 全靠猜。
+    """
+    sessions = store.recent_sessions(limit=2000)
+    stats = {}  # payload_id -> {delivered, confirmed, sessions}
+    total_delivered = total_confirmed = 0
+
+    for session in sessions:
+        sid = session["id"]
+        events = [e for e in store.recent_events(limit=5000)
+                  if e.get("session_id") == sid]
+        if not events:
+            continue
+
+        # 投放事件
+        deliveries = {}
+        for ev in events:
+            if ev["kind"] != "payload_delivery":
+                continue
+            detail = ev["detail"] or ""
+            for pid in detail.replace("投放: ", "").split(","):
+                pid = pid.strip()
+                if pid:
+                    deliveries.setdefault(pid, ev["ts"])
+
+        if not deliveries:
+            continue
+
+        # 确证事件(按时间)
+        confirmations = []
+        for ev in events:
+            if ev["kind"] in ("canary_echo", "injection_compliance",
+                              "beacon_callback", "agent_config_captured"):
+                confirmations.append(ev["ts"])
+
+        for pid, delivered_at in deliveries.items():
+            entry = stats.setdefault(pid, {
+                "delivered": 0, "confirmed_after": 0, "sessions": set(),
+            })
+            entry["delivered"] += 1
+            entry["sessions"].add(sid[:20])
+            total_delivered += 1
+            # 确证发生在投放之后(允许同秒, 因为请求-响应几乎同刻)
+            if any(t >= delivered_at - 1.0 for t in confirmations):
+                entry["confirmed_after"] += 1
+                total_confirmed += 1
+
+    rows = []
+    for pid in sorted(stats, key=lambda k: -stats[k]["delivered"]):
+        entry = stats[pid]
+        rate = entry["confirmed_after"] / entry["delivered"] if entry["delivered"] else 0
+        rows.append({
+            "payload": pid,
+            "delivered_sessions": entry["delivered"],
+            "confirmed_sessions": entry["confirmed_after"],
+            "confirmation_rate": round(rate, 3),
+        })
+    return {
+        "payloads": rows,
+        "total_delivered": total_delivered,
+        "total_confirmed": total_confirmed,
+        "overall_rate": round(total_confirmed / total_delivered, 3) if total_delivered else 0,
+    }
+
+
+def render_effectiveness(effect):
+    lines = ["# 反制载荷效果归因", "",
+             f"总会话投放: {effect['total_delivered']} | 投放后确证: {effect['total_confirmed']}",
+             f"总体确证率: {effect['overall_rate']:.1%}", "",
+             "| 载荷 | 投放会话 | 确证会话 | 确证率 |",
+             "|---|---|---|---|"]
+    for row in effect["payloads"]:
+        lines.append("| `%s` | %d | %d | %.1f%% |" % (
+            row["payload"], row["delivered_sessions"],
+            row["confirmed_sessions"], row["confirmation_rate"] * 100))
+    lines.append("")
+    lines.append("> 确证 = 投放后同会话出现金丝雀回显/指令服从/信标回调/配置泄漏。")
+    lines.append("> 确证率高 → 该载荷被实际读到并执行, 应保持或加权;")
+    lines.append("> 确证率低且权重大 → 考虑降权(占投递面但无效果)。")
+    return "\n".join(lines)
+
+
 def batch_report(config, store, min_score=70, limit=20, campaign=False):
     """批量产出达到阈值的目标材料。返回 (成功数, 失败列表)。"""
     produced = 0

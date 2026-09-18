@@ -220,3 +220,56 @@ def test_cert_canary_option_generates_san():
         ["openssl", "x509", "-in", tmp + "/c.pem", "-noout", "-text"]).decode()
     assert "hpx-cert99" in text
     shutil.rmtree(tmp, ignore_errors=True)
+
+
+# --------------------------------------------------------------------------
+# 载荷效果归因 (M9 闭环)
+# --------------------------------------------------------------------------
+
+def test_payload_effectiveness_basic():
+    """投放 → 确证的归因引擎能正确工作。"""
+    import report as report_mod
+    store = store_mod.Store(":memory:")
+    # 造一个会话: 投了 payload_a, 随后确证
+    store.start_session("eff-1", "203.0.113.1", 1, "u", "h", "s")
+    store.log_event("payload_delivery", "eff-1", "203.0.113.1",
+                    "投放: payload_a,payload_b", "info", ts=100.0)
+    store.log_event("canary_echo", "eff-1", "203.0.113.1",
+                    "token echoed", "critical", ts=101.0)
+    # 另一个会话: 投了 payload_c, 无确证
+    store.start_session("eff-2", "203.0.113.2", 1, "u", "h", "s")
+    store.log_event("payload_delivery", "eff-2", "203.0.113.2",
+                    "投放: payload_c", "info", ts=100.0)
+
+    effect = report_mod.payload_effectiveness(store)
+    by_id = {r["payload"]: r for r in effect["payloads"]}
+    assert "payload_a" in by_id
+    assert by_id["payload_a"]["confirmed_sessions"] == 1
+    assert by_id["payload_c"]["confirmed_sessions"] == 0
+    assert by_id["payload_c"]["confirmation_rate"] == 0.0
+    store.close()
+
+
+def test_payload_effectiveness_empty():
+    import report as report_mod
+    store = store_mod.Store(":memory:")
+    effect = report_mod.payload_effectiveness(store)
+    assert effect["payloads"] == []
+    assert effect["overall_rate"] == 0
+    store.close()
+
+
+def test_render_effectiveness_markdown():
+    import report as report_mod
+    store = store_mod.Store(":memory:")
+    store.start_session("r-1", "203.0.113.1", 1, "u", "h", "s")
+    store.log_event("payload_delivery", "r-1", "203.0.113.1",
+                    "投放: test_payload", "info", ts=100.0)
+    store.log_event("canary_echo", "r-1", "203.0.113.1",
+                    "echo", "critical", ts=101.0)
+    effect = report_mod.payload_effectiveness(store)
+    md = report_mod.render_effectiveness(effect)
+    assert "test_payload" in md
+    assert "100.0%" in md
+    assert "确证率" in md
+    store.close()

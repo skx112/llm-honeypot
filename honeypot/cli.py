@@ -1320,6 +1320,42 @@ def _apply_block_element(ip, ttl):
         return False, repr(exc)
 
 
+def cmd_effectiveness(args):
+    """载荷效果归因: 哪些反制方式真的被服从了(权重调优的数据基础)。"""
+    cfg = load_config(args)
+    try:
+        report_mod = __import__("report")
+    except ImportError:
+        fail("report 模块缺失")
+        return EXIT_ERROR
+    store_mod = __import__("store")
+    store = store_mod.Store(cfg.store_path())
+    try:
+        effect = report_mod.payload_effectiveness(store)
+        if not effect["payloads"]:
+            warn("尚无投放数据 —— 需要有攻击会话命中蜜罐后才会产生")
+            return EXIT_OK
+        if args.stdout:
+            print(report_mod.render_effectiveness(effect))
+            return EXIT_OK
+        heading("反制载荷效果归因")
+        dim("总会话投放: %s | 确证: %s | 总体确证率: %.1f%%" % (
+            effect["total_delivered"], effect["total_confirmed"],
+            effect["overall_rate"] * 100))
+        print()
+        table([[r["payload"], r["delivered_sessions"],
+                r["confirmed_sessions"],
+                "%.1f%%" % (r["confirmation_rate"] * 100)]
+               for r in effect["payloads"][:20]],
+              headers=["载荷", "投放会话", "确证会话", "确证率"])
+        print()
+        dim("高确证率=实际被读到并执行; 低确证率+高权重=考虑降权")
+        dim("导出 Markdown: cogtrap effectiveness --stdout")
+        return EXIT_OK
+    finally:
+        store.close()
+
+
 def cmd_doctor(args):
     cfg = load_config(args)
     heading("%s doctor —— 环境自检" % PRODUCT)
@@ -1597,6 +1633,12 @@ def build_parser():
                        help="真实落地(需 root 且 cogtrap nft 表已加载)")
     p_blk.add_argument("--list", action="store_true", help="列出近期处置记录")
     p_blk.set_defaults(func=cmd_block)
+
+    # effectiveness
+    p_eff = subparsers.add_parser("effectiveness",
+                                  help="反制载荷效果归因(哪些真的被服从了)")
+    p_eff.add_argument("--stdout", action="store_true", help="输出 Markdown")
+    p_eff.set_defaults(func=cmd_effectiveness)
 
     p_doc = subparsers.add_parser("doctor", help="环境自检")
     p_doc.set_defaults(func=cmd_doctor)

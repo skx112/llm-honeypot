@@ -40,7 +40,7 @@ class Session(object):
     __slots__ = ("sid", "ip", "port", "profile", "ctx", "canary", "expectations",
                  "score", "verdict", "decision", "compliance_hits", "inject_hits",
                  "alerted", "start_ts", "req_count", "seen_expectations",
-                 "conn_count", "last_seen")
+                 "conn_count", "last_seen", "delivered_payloads")
 
     def __init__(self, sid, ip, port, profile, ctx, canary):
         self.sid = sid
@@ -60,6 +60,7 @@ class Session(object):
         self.start_ts = time.time()
         self.req_count = 0
         self.conn_count = 0        # 该客户端建立的连接数(跨连接累计)
+        self.delivered_payloads = []   # 本会话投放过的载荷 id 列表(效果归因)
         self.last_seen = self.start_ts
 
     def add_expectations(self, items):
@@ -362,6 +363,11 @@ class HoneypotServer(object):
         if reply is None:
             reply = self.deception.handle(req, session)
 
+        # 载荷投放追踪: 记录本响应投了哪些载荷(效果归因的数据源)
+        delivered = self._payloads_delivered(session, req)
+        if delivered:
+            session.delivered_payloads.extend(delivered)
+
         # 6) 拖滞计划
         plan = self.tarpit.plan(profile, verdict, decision.action, reply)
 
@@ -386,6 +392,26 @@ class HoneypotServer(object):
         if req.version == "HTTP/1.0" and connection_header != "keep-alive":
             return False
         return True
+
+    def _payloads_delivered(self, session, req):
+        """本请求的响应投放了哪些载荷(从 inject 的选配结果反推)。
+
+        不重新渲染 —— inject.select_for_tier 是确定性的(同分数同种子同结果),
+        直接再调一次拿到 id 列表, 与响应里的内容一致。
+        """
+        try:
+            score = session.score or 0
+            ctx = session.ctx
+            ids = []
+            for item in inject.select_for_tier(score, limit=4, per_category_limit=1):
+                ids.append(item["id"])
+            for item in inject.select_for_tier(score, limit=3,
+                                               rotate_seed=ctx.canary + ":html"):
+                if item["id"] not in ids:
+                    ids.append(item["id"])
+            return ids[:8]
+        except Exception:
+            return []
 
     def _scan_canary(self, session, req, ts):
         """检索请求里是否夹带我们签发过的金丝雀令牌。"""
@@ -616,6 +642,11 @@ class HoneypotServer(object):
             tokens_json=_json([e["token"] for e in profile.tokens_presented]),
             note=decision.reason[:512],
         )
+        # 载荷投放 → 效果归因数据(与 tokens_json 同列存, 便于关联分析)
+        if session.delivered_payloads:
+            self.store.log_event(
+                "payload_delivery", session.sid, session.ip,
+                "投放: %s" % ",".join(session.delivered_payloads), "info")
 
         if decision.block_candidate:
             self._emit_block_candidate(session, verdict)
