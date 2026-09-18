@@ -38,7 +38,8 @@ LAYERS = {
         "countermeasures", "scenarios", "block", "tarpit", "report",
         "dashboard", "alerts", "hub", "dom_decoys"],
     1: ["templating", "inject"],
-    2: ["respond", "deception", "ssh_decoy", "server"],
+    2: ["respond", "deception", "ssh_decoy", "server",
+        "proto_decoys", "proto_server"],
     3: ["cli"],
 }
 

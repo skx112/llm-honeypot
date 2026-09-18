@@ -15,6 +15,11 @@ DEFAULTS = {
         "server_header": "nginx/1.24.0 (Ubuntu)",
         "tls": {"enabled": False, "cert": "", "key": ""},
     },
+    "proto_decoy": {
+        "enabled": True,
+        "listen": "0.0.0.0",
+        "ports": [21, 23, 25, 3306, 5432, 6379, 9200, 11211, 27017, 3389],
+    },
     "ssh_decoy": {
         "enabled": True,
         "listen": "0.0.0.0",

@@ -186,6 +186,17 @@ def cmd_serve(args):
         dim("且与真实资产之间无双向路由。只想本机试跑请加 --host 127.0.0.1")
 
     extras = []
+    # 多协议诱饵(FTP/Telnet/SMTP/MySQL/Redis/ES/Memcached/MongoDB/RDP)
+    if cfg.get("proto_decoy.enabled", True):
+        try:
+            proto_server = __import__("proto_server")
+            proto_decoy_srv = proto_server.MultiProtocolDecoy(cfg, store=store)
+            count = loop.run_until_complete(proto_decoy_srv.start())
+            extras.append(proto_decoy_srv)
+            dim("多协议诱饵: %d 个端口 (21/23/25/3306/6379/9200/11211/27017/3389)" % count)
+        except ImportError:
+            warn("proto_server 模块缺失, 跳过多协议诱饵")
+
     if cfg.get("ssh_decoy.enabled", False):
         try:
             ssh_decoy = __import__("ssh_decoy")
