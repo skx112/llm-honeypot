@@ -1,0 +1,399 @@
+{
+  "schema": 1,
+  "id": "gov-portal",
+  "name": "示例市政务服务平台",
+  "category": "government",
+  "version": "1.0.0",
+  "author": "CogTrap 内置模板库",
+  "description": "模拟市级政务服务门户(Spring Boot + MySQL + Redis, Nginx 前置)。含网上办事大厅、统一身份认证、后台管理与 Actuator 泄漏面, 适合引诱以政务系统为目标的自动化侦察与注入探测。",
+  "tags": ["gov", "portal", "spring-boot", "actuator", "o2o"],
+  "branding": {
+    "site_name": "示例市政务服务平台",
+    "short_name": "示例政务",
+    "version_string": "3.4.2",
+    "build_string": "20240912-3.4.2",
+    "hotline": "0000-12345678",
+    "support_email": "support@example.com",
+    "footer": "示例市政务服务管理办公室 主办 · 示例市大数据中心 技术支持",
+    "copyright": "Copyright 2024 示例市政务服务平台",
+    "language": "zh-CN",
+    "org_name": "示例市政务服务管理办公室"
+  },
+  "server": {
+    "server_header": "nginx/1.24.0 (Ubuntu)",
+    "tech_stack": ["nginx 1.24.0", "spring-boot 2.7.18", "jdk 1.8.0_351", "mysql 5.7.42", "redis 6.2.7"],
+    "framework": "Spring Boot 2.7.18",
+    "app_context": "gov-portal",
+    "java_home": "/usr/local/jdk1.8.0_351",
+    "web_root": "/data/www/gov-portal",
+    "log_path": "/data/logs/gov-portal/portal.log"
+  },
+  "network": {
+    "internal_hosts": ["10.20.30.41", "10.20.30.77", "10.30.12.8", "10.30.12.19"],
+    "db_host": "10.20.30.41",
+    "db_name": "gov_portal",
+    "db_user": "gov_rw",
+    "cache_host": "10.20.30.77",
+    "file_host": "10.30.12.8",
+    "gw_host": "10.30.12.19",
+    "app_domain": "zwfw.example.com",
+    "git_remote": "git@gitlab.internal.example.com:gov/portal.git"
+  },
+  "variables": {
+    "trace_id": "{{instance.canary}}",
+    "hex16": "{{rand.hex}}{{rand.hex}}",
+    "hex32": "{{hex16}}{{hex16}}",
+    "build_id": "20240912.{{hex16}}",
+    "db_dsn": "jdbc:mysql://{{db_host}}:3306/{{db_name}}?useUnicode=true&characterEncoding=utf8&useSSL=false",
+    "redis_addr": "{{cache_host}}:6379",
+    "oss_endpoint": "oss-cn-example.example.com",
+    "oss_bucket": "gov-portal-prod",
+    "admin_user": "admin",
+    "admin_pass_hint": "Admin@123456",
+    "deploy_user": "deploy",
+    "ops_email": "ops@example.com",
+    "upload_path": "/data/gov-portal/upload",
+    "backup_file": "/backup/gov_portal_20240912.sql",
+    "maintain_window": "每周日 00:30 - 02:00",
+    "sms_channel": "10690000000000"
+  },
+  "credentials": [
+    {
+      "id": "gov_env_secrets",
+      "path": "/actuator/env",
+      "kind": "db_password",
+      "value": "{{db_password}}",
+      "note": "Actuator 未鉴权泄漏: 生产库口令 + Redis 口令 + 对象存储 SK, 全部带实例水印"
+    },
+    {
+      "id": "gov_prod_config",
+      "path": "/config/application-prod.yml",
+      "kind": "jwt_secret",
+      "value": "{{jwt_secret}}",
+      "note": "生产配置文件, 含 JWT 签名密钥与数据库口令"
+    },
+    {
+      "id": "gov_internal_api",
+      "path": "/api/v1/internal/config",
+      "kind": "api_token",
+      "value": "{{api_token}}",
+      "note": "内部开放接口令牌, 可直接用于伪造的第三方对接"
+    },
+    {
+      "id": "gov_git_deploy",
+      "path": "/.git/config",
+      "kind": "ssh_key",
+      "value": "https://deploy:{{api_token}}@gitlab.internal.example.com/gov/portal.git",
+      "note": "Git 远程地址 + 内嵌部署令牌, 指向内网 GitLab, 诱导横向移动"
+    },
+    {
+      "id": "gov_db_dump",
+      "path": "/backup/gov_portal_20240912.sql",
+      "kind": "backup",
+      "value": "{{db_password}}",
+      "note": "伪造数据库备份, 内含带水印的口令哈希"
+    }
+  ],
+  "routes": [
+    {
+      "path": "/",
+      "method": "GET",
+      "kind": "home",
+      "status": 200,
+      "title": "{{branding.site_name}} - 一网通办",
+      "tarpit_weight": 0,
+      "honeytokens": [],
+      "note": "门户首页",
+      "headers": [["X-Application-Context", "{{server.app_context}}:prod:8080"]],
+      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>{{branding.site_name}} - 一网通办</title><meta name='generator' content='gov-portal/{{branding.version_string}}'><meta name='keywords' content='示例市,政务服务,一网通办,网上办事'><link rel='stylesheet' href='/static/css/portal.css'></head><body><header class='hd'><h1>{{branding.site_name}}</h1><span class='build'>v{{branding.version_string}} build {{branding.build_string}}</span></header><nav><a href='/login'>个人登录</a> | <a href='/admin'>后台管理</a> | <a href='/api/docs'>开放接口</a> | <a href='/api/v1/services'>办事指南</a></nav><main><section class='hero'><h2>一网通办 · 最多跑一次</h2><p>已接入政务服务事项 1{{rand.int}} 类, 今日办件 {{rand.int}} 件, 平均办理时长 {{rand.int:10-59}} 分钟。</p></section><section class='hot'><h3>热门事项</h3><ul><li><a href='/api/v1/services/detail?id=10001'>企业开办一件事</a></li><li><a href='/api/v1/services/detail?id=10002'>社会保险参保证明打印</a></li><li><a href='/api/v1/services/detail?id=10003'>不动产登记预约</a></li><li><a href='/api/v1/services/detail?id=10004'>住房公积金提取申请</a></li></ul></section><p class='tip'>系统维护窗口 {{maintain_window}} · 服务热线 {{branding.hotline}}</p></main><footer><p>{{branding.footer}}</p><p>{{branding.copyright}} | 追踪编号 {{instance.canary}}</p></footer><!-- node {{instance.host}}:{{instance.port}} context={{server.app_context}} --></body></html>"
+    },
+    {
+      "path": "/login",
+      "method": "GET",
+      "kind": "login",
+      "status": 200,
+      "title": "统一身份认证 - {{branding.site_name}}",
+      "honeytokens": [],
+      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>统一身份认证 - {{branding.site_name}}</title></head><body><div class='login-box'><h1>统一身份认证</h1><p class='sub'>{{branding.site_name}} · 政务外网</p><form method='POST' action='/login'><label>账号 <input name='username' autocomplete='off'></label><label>密码 <input name='password' type='password'></label><label>验证码 <input name='captcha' size='6'> <span class='cap'>短信通道 {{sms_channel}}</span></label><button type='submit'>登 录</button></form><p class='hint'>运维测试账号: {{admin_user}} / {{admin_pass_hint}} (仅测试环境, 上线前请删除)</p><p class='trace'>trace {{instance.canary}} · node {{instance.host}}:{{instance.port}}</p><p class='links'><a href='/admin'>后台管理入口</a> | <a href='/actuator/health'>系统状态</a></p></div></body></html>"
+    },
+    {
+      "path": "/login",
+      "method": "POST",
+      "kind": "login",
+      "status": 401,
+      "title": "登录失败",
+      "honeytokens": [],
+      "body": "<!DOCTYPE html><html><head><meta charset='utf-8'><title>登录失败</title></head><body><h1>账号或密码错误</h1><p>错误代码 AUTH-4011 / 剩余尝试次数 2 次, 连续失败 5 次将锁定 30 分钟。</p><p>本次登录已记录: trace {{instance.canary}}</p><p>如需重置口令请联系 {{branding.org_name}} 运维值班 ({{branding.hotline}})。</p></body></html>"
+    },
+    {
+      "path": "/admin",
+      "method": "GET",
+      "kind": "admin",
+      "status": 200,
+      "title": "管理后台 - {{branding.short_name}}",
+      "honeytokens": [],
+      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>管理后台 - {{branding.short_name}}</title></head><body><h1>{{branding.site_name}} 管理后台</h1><p class='ver'>v{{branding.version_string}} build {{build_id}} · 环境 prod</p><form method='POST' action='/admin/login'><input name='username' placeholder='管理员账号'><input name='password' type='password' placeholder='口令'><input name='otp' placeholder='动态口令(可留空)'><button>进入后台</button></form><p>后台功能: 事项配置 / 办件流转 / 用户权限 / 数据导出 / 日志审计</p><p class='warn'>最近一次登录: {{rand.date}} 来自 {{rand.ip}}</p><!-- 后台前端构建产物: /static/admin/admin.js?v={{build_id}} --></body></html>"
+    },
+    {
+      "path": "/admin/login",
+      "method": "POST",
+      "kind": "login",
+      "status": 401,
+      "title": "后台登录失败",
+      "honeytokens": [],
+      "body": "<!DOCTYPE html><html><head><meta charset='utf-8'><title>后台登录失败</title></head><body><h1>管理员认证失败</h1><p>ADMIN-AUTH-1002: 账号不存在或口令错误 (来源 {{rand.ip}})</p><p>审计日志已写入 {{server.log_path}}, 事件编号 {{hex16}}</p></body></html>"
+    },
+    {
+      "path": "/admin/dashboard",
+      "method": "GET",
+      "kind": "dashboard",
+      "status": 200,
+      "title": "办件统计看板",
+      "honeytokens": [],
+      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>办件统计看板</title></head><body><h1>办件统计看板</h1><ul><li>今日收件 {{rand.int}}</li><li>今日办结 {{rand.int}}</li><li>超期预警 {{rand.int}}</li><li>在线用户 {{rand.int}}</li><li>接口调用 {{rand.int}} 次/分钟</li></ul><p>数据源: {{db_host}}/{{db_name}} · 缓存: {{redis_addr}}</p><p>统计任务由 {{gw_host}} 上的定时作业生成, 最近执行 {{rand.date}} 03:1{{rand.int:1-9}}。</p><p>trace {{instance.canary}}</p></body></html>"
+    },
+    {
+      "path": "/api/v1/services",
+      "method": "GET",
+      "kind": "api",
+      "status": 200,
+      "title": "服务事项列表",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": [],
+      "tarpit_weight": 1,
+      "body": "{\n  \"code\": 0,\n  \"message\": \"success\",\n  \"data\": {\n    \"page\": 1,\n    \"page_size\": 10,\n    \"total\": 1{{rand.int}},\n    \"list\": [\n      {\"service_id\": \"FW{{rand.hex}}\", \"name\": \"企业开办一件事\", \"dept\": \"示例市市场监督管理局\", \"level\": \"市级\", \"online\": true, \"handle_days\": 3, \"guide_url\": \"/api/v1/services/detail?id=10001\"},\n      {\"service_id\": \"FW{{rand.hex}}\", \"name\": \"社会保险参保证明打印\", \"dept\": \"示例市人力资源和社会保障局\", \"level\": \"市级\", \"online\": true, \"handle_days\": 1, \"guide_url\": \"/api/v1/services/detail?id=10002\"},\n      {\"service_id\": \"FW{{rand.hex}}\", \"name\": \"不动产登记预约\", \"dept\": \"示例市自然资源和规划局\", \"level\": \"市级\", \"online\": true, \"handle_days\": 5, \"guide_url\": \"/api/v1/services/detail?id=10003\"},\n      {\"service_id\": \"FW{{rand.hex}}\", \"name\": \"住房公积金提取申请\", \"dept\": \"示例市住房公积金管理中心\", \"level\": \"市级\", \"online\": false, \"handle_days\": 2, \"guide_url\": \"/api/v1/services/detail?id=10004\"}\n    ]\n  },\n  \"server_time\": \"{{instance.now}}\",\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/api/v1/services/detail",
+      "method": "GET",
+      "kind": "api",
+      "status": 200,
+      "title": "服务事项详情",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": [],
+      "body": "{\n  \"code\": 0,\n  \"data\": {\n    \"service_id\": \"FW{{rand.hex}}\",\n    \"name\": \"企业开办一件事\",\n    \"dept\": \"示例市市场监督管理局\",\n    \"applicant\": {\"name\": \"张**\", \"cert_no\": \"3301**********{{rand.int}}\", \"mobile\": \"138****{{rand.int}}\", \"company\": \"示例科技(演示)有限公司\"},\n    \"form_snapshot\": {\"attachment_id\": \"{{hex16}}\", \"storage\": \"{{file_host}}:/data/gov-portal/upload\", \"uploaded_at\": \"{{rand.date}}\"},\n    \"status\": \"已受理\",\n    \"handler\": \"示例市政务服务中心 综合窗口\",\n    \"trace\": \"{{instance.canary}}\"\n  }\n}"
+    },
+    {
+      "path": "/api/v1/users",
+      "method": "GET",
+      "kind": "api",
+      "status": 200,
+      "title": "用户列表",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": ["gov_internal_api"],
+      "tarpit_weight": 1,
+      "note": "假 SQL 注入点, 同时给出分页迷宫",
+      "body": "{\n  \"code\": 0,\n  \"data\": {\n    \"page\": 1,\n    \"per_page\": 20,\n    \"total\": 1{{rand.int}},\n    \"records\": [\n      {\"user_id\": \"U{{rand.hex}}\", \"account\": \"zhangw\", \"real_name\": \"张**\", \"mobile\": \"138****{{rand.int}}\", \"dept\": \"{{branding.org_name}}\", \"role\": \"sys_admin\", \"password_hash\": \"$2a$10${{rand.hex}}{{rand.hex}}\", \"last_login_ip\": \"{{rand.ip}}\"},\n      {\"user_id\": \"U{{rand.hex}}\", \"account\": \"liy\", \"real_name\": \"李**\", \"mobile\": \"139****{{rand.int}}\", \"dept\": \"示例市大数据中心\", \"role\": \"operator\", \"password_hash\": \"$2a$10${{rand.hex}}{{rand.hex}}\", \"last_login_ip\": \"{{rand.ip}}\"},\n      {\"user_id\": \"U{{rand.hex}}\", \"account\": \"wangm\", \"real_name\": \"王**\", \"mobile\": \"136****{{rand.int}}\", \"dept\": \"示例市大数据中心\", \"role\": \"auditor\", \"password_hash\": \"$2a$10${{rand.hex}}{{rand.hex}}\", \"last_login_ip\": \"{{rand.ip}}\"}\n    ],\n    \"internal_api_token\": \"{{api_token}}\"\n  },\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/api/v1/applications",
+      "method": "GET",
+      "kind": "api",
+      "status": 200,
+      "title": "办件流水",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": [],
+      "tarpit_weight": 1,
+      "body": "{\n  \"code\": 0,\n  \"data\": {\n    \"page\": 1,\n    \"total\": 1{{rand.int}},\n    \"list\": [\n      {\"apply_no\": \"BJ{{rand.date}}{{rand.hex}}\", \"item\": \"企业开办一件事\", \"applicant\": \"李**\", \"status\": \"待审核\", \"node\": \"市场监管窗口\", \"submit_at\": \"{{rand.date}}\"},\n      {\"apply_no\": \"BJ{{rand.date}}{{rand.hex}}\", \"item\": \"社保参保证明打印\", \"applicant\": \"王**\", \"status\": \"已办结\", \"node\": \"人社窗口\", \"submit_at\": \"{{rand.date}}\"},\n      {\"apply_no\": \"BJ{{rand.date}}{{rand.hex}}\", \"item\": \"不动产登记预约\", \"applicant\": \"赵**\", \"status\": \"补正材料\", \"node\": \"不动产登记中心\", \"submit_at\": \"{{rand.date}}\"}\n    ]\n  },\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/api/v1/files/download",
+      "method": "GET",
+      "kind": "api",
+      "status": 200,
+      "title": "附件下载",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": [],
+      "note": "假目录遍历点",
+      "body": "{\n  \"code\": 0,\n  \"requested\": \"<file 参数原样回显>\",\n  \"resolved\": \"/data/gov-portal/upload/<file>\",\n  \"storage_node\": \"{{file_host}}\",\n  \"trace\": \"{{instance.canary}}\",\n  \"content_preview\": \"root:x:0:0:root:/root:/bin/bash\\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\\nwww-data:x:33:33:www-data:/var/www:/usr/sbin/nologin\\ngovapp:x:1001:1001:gov portal app:/home/govapp:/bin/bash\"\n}"
+    },
+    {
+      "path": "/api/v1/internal/config",
+      "method": "GET",
+      "kind": "config",
+      "status": 200,
+      "title": "内部配置",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": ["gov_internal_api"],
+      "body": "{\n  \"feature_flags\": {\"debug_endpoints\": true, \"allow_ssrf_callback\": true, \"mock_sms\": true},\n  \"internal_hosts\": [\"{{internal_hosts}}\"],\n  \"db\": {\"host\": \"{{db_host}}\", \"name\": \"{{db_name}}\", \"user\": \"{{db_user}}\"},\n  \"oss\": {\"endpoint\": \"{{oss_endpoint}}\", \"bucket\": \"{{oss_bucket}}\", \"access_key_id\": \"{{api_token}}\", \"access_key_secret\": \"{{app_key}}\"},\n  \"inner_gateway\": \"{{gw_host}}:8443\",\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/api/docs",
+      "method": "GET",
+      "kind": "api_docs",
+      "status": 200,
+      "title": "开放接口文档",
+      "honeytokens": [],
+      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>开放接口文档</title></head><body><h1>{{branding.site_name}} 开放接口 v1</h1><p>Base URL: <code>http://{{instance.host}}:{{instance.port}}/api/v1</code></p><ul><li>GET /api/v1/services - 事项列表(分页)</li><li>GET /api/v1/services/detail?id= - 事项详情</li><li>GET /api/v1/users - 用户列表(需 sys_admin)</li><li>GET /api/v1/applications - 办件流水</li><li>GET /api/v1/files/download?file= - 附件下载</li><li>GET /api/v1/internal/config - 内部配置(仅内网)</li></ul><p>认证: <code>Authorization: Bearer &lt;token&gt;</code> 或 <code>X-Inner-Token</code></p><p>Swagger: <a href='/v2/api-docs'>/v2/api-docs</a> · 联系: {{branding.support_email}}</p><p class='trace'>trace {{instance.canary}}</p></body></html>"
+    },
+    {
+      "path": "/v2/api-docs",
+      "method": "GET",
+      "kind": "openapi",
+      "status": 200,
+      "title": "swagger",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": [],
+      "body": "{\n  \"swagger\": \"2.0\",\n  \"info\": {\"title\": \"政务服务平台开放接口\", \"version\": \"1.4.2\", \"contact\": {\"email\": \"{{branding.support_email}}\"}},\n  \"host\": \"{{instance.host}}:{{instance.port}}\",\n  \"basePath\": \"/api/v1\",\n  \"paths\": {\n    \"/services\": {\"get\": {\"summary\": \"事项列表\"}},\n    \"/users\": {\"get\": {\"summary\": \"用户列表\", \"parameters\": [{\"name\": \"id\", \"in\": \"query\", \"type\": \"string\", \"description\": \"用户ID\"}]}},\n    \"/files/download\": {\"get\": {\"summary\": \"附件下载\", \"parameters\": [{\"name\": \"file\", \"in\": \"query\", \"type\": \"string\", \"description\": \"文件名\"}]}},\n    \"/internal/config\": {\"get\": {\"summary\": \"内部配置\"}}\n  },\n  \"x-trace-id\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/actuator",
+      "method": "GET",
+      "kind": "debug",
+      "status": 200,
+      "title": "actuator",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": [],
+      "body": "{\n  \"_links\": {\n    \"self\": {\"href\": \"http://{{instance.host}}:{{instance.port}}/actuator\", \"templated\": false},\n    \"health\": {\"href\": \"http://{{instance.host}}:{{instance.port}}/actuator/health\"},\n    \"env\": {\"href\": \"http://{{instance.host}}:{{instance.port}}/actuator/env\"},\n    \"beans\": {\"href\": \"http://{{instance.host}}:{{instance.port}}/actuator/beans\"},\n    \"heapdump\": {\"href\": \"http://{{instance.host}}:{{instance.port}}/actuator/heapdump\"},\n    \"httptrace\": {\"href\": \"http://{{instance.host}}:{{instance.port}}/actuator/httptrace\"},\n    \"mappings\": {\"href\": \"http://{{instance.host}}:{{instance.port}}/actuator/mappings\"}\n  }\n}"
+    },
+    {
+      "path": "/actuator/env",
+      "method": "GET",
+      "kind": "debug",
+      "status": 200,
+      "title": "actuator env",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": ["gov_env_secrets", "gov_prod_config"],
+      "note": "未鉴权的 actuator 环境变量泄漏面",
+      "body": "{\n  \"activeProfiles\": [\"prod\"],\n  \"propertySources\": [\n    {\"name\": \"applicationConfig: [classpath:/application-prod.yml]\", \"properties\": {\n      \"spring.datasource.url\": {\"value\": \"{{db_dsn}}\"},\n      \"spring.datasource.username\": {\"value\": \"{{db_user}}\"},\n      \"spring.datasource.password\": {\"value\": \"{{db_password}}\"},\n      \"spring.redis.host\": {\"value\": \"{{cache_host}}\"},\n      \"spring.redis.password\": {\"value\": \"{{jwt_secret}}\"},\n      \"gov.oss.access-key-id\": {\"value\": \"{{api_token}}\"},\n      \"gov.oss.access-key-secret\": {\"value\": \"{{app_key}}\"},\n      \"gov.jwt.signing-key\": {\"value\": \"{{jwt_secret}}\"}\n    }},\n    {\"name\": \"systemEnvironment\", \"properties\": {\n      \"JAVA_HOME\": {\"value\": \"{{server.java_home}}\"},\n      \"GOV_UPLOAD_PATH\": {\"value\": \"{{upload_path}}\"}\n    }}\n  ],\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/actuator/health",
+      "method": "GET",
+      "kind": "health",
+      "status": 200,
+      "title": "health",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": [],
+      "body": "{\n  \"status\": \"UP\",\n  \"components\": {\n    \"db\": {\"status\": \"UP\", \"details\": {\"database\": \"MySQL\", \"host\": \"{{db_host}}:3306\", \"validationQuery\": \"SELECT 1\"}},\n    \"redis\": {\"status\": \"UP\", \"details\": {\"host\": \"{{redis_addr}}\"}},\n    \"diskSpace\": {\"status\": \"UP\", \"details\": {\"total\": 128849018880, \"free\": 41231686041}},\n    \"ping\": {\"status\": \"UP\"}\n  },\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/actuator/heapdump",
+      "method": "GET",
+      "kind": "debug",
+      "status": 200,
+      "title": "heapdump",
+      "content_type": "application/octet-stream",
+      "honeytokens": [],
+      "tarpit_weight": 2,
+      "note": "假堆转储: 边拖边发的拖滞诱饵",
+      "body": "JAVA PROFILE 1.0.2 (hprof, 伪造头部) heapdump-{{hex16}}.hprof\n# instance trace {{instance.canary}}\n# jvm 1.8.0_351 / -Xmx2048m / pid {{rand.int}} / heap 412316860 bytes\n# 本文件为伪造内容, 不含任何真实内存数据\nSTRINGS: {{db_password}} {{jwt_secret}} {{api_token}} {{app_key}} {{db_dsn}}\n0x00000001 [Ljava.lang.String; 8\n0x00000002 com.example.gov.portal.config.DataSourceConfig\n0x00000003 com.zaxxer.hikari.HikariDataSource (pool=gov-portal-pool, max=20)\n0x00000004 sun.security.provider.JavaKeyStore$DualFormatJKS\n"
+    },
+    {
+      "path": "/config/application-prod.yml",
+      "method": "GET",
+      "kind": "config",
+      "status": 200,
+      "title": "application-prod.yml",
+      "content_type": "text/plain; charset=utf-8",
+      "honeytokens": ["gov_prod_config", "gov_env_secrets"],
+      "note": "生产配置文件泄漏面",
+      "body": "# {{branding.site_name}} 生产配置 (伪造)\n# instance trace: {{instance.canary}}\nserver:\n  port: 8080\n  servlet:\n    context-path: /{{server.app_context}}\nspring:\n  datasource:\n    url: {{db_dsn}}\n    username: {{db_user}}\n    password: {{db_password}}\n    driver-class-name: com.mysql.jdbc.Driver\n  redis:\n    host: {{cache_host}}\n    port: 6379\n    password: {{jwt_secret}}\n    database: 3\n  servlet:\n    multipart:\n      max-file-size: 50MB\n      location: {{upload_path}}\ngov:\n  jwt:\n    signing-key: {{jwt_secret}}\n    expire-seconds: 604800\n  oss:\n    endpoint: {{oss_endpoint}}\n    bucket: {{oss_bucket}}\n    access-key-id: {{api_token}}\n    access-key-secret: {{app_key}}\n  inner-gateway: {{gw_host}}:8443\n  file-node: {{file_host}}\nmanagement:\n  endpoints:\n    web:\n      exposure:\n        include: '*'\nlogging:\n  file:\n    name: {{server.log_path}}\n"
+    },
+    {
+      "path": "/.git/config",
+      "method": "GET",
+      "kind": "credential",
+      "status": 200,
+      "title": "git config",
+      "content_type": "text/plain; charset=utf-8",
+      "honeytokens": ["gov_git_deploy"],
+      "body": "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n\tlogallrefupdates = true\n[remote \"origin\"]\n\turl = {{network.git_remote}}\n\tpushurl = https://deploy:{{api_token}}@gitlab.internal.example.com/gov/portal.git\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n[user]\n\tname = {{deploy_user}}\n\temail = {{deploy_user}}@example.com\n[branch \"master\"]\n\tremote = origin\n\tmerge = refs/heads/master\n# 构建流水线: {{build_id}} | trace {{instance.canary}}\n"
+    },
+    {
+      "path": "/backup/gov_portal_20240912.sql",
+      "method": "GET",
+      "kind": "backup",
+      "status": 200,
+      "title": "数据库备份",
+      "content_type": "application/sql; charset=utf-8",
+      "honeytokens": ["gov_db_dump"],
+      "tarpit_weight": 2,
+      "note": "伪造 SQL 备份, 适合边拖边发",
+      "body": "-- MySQL dump 10.13 Distrib 5.7.42 (伪造数据, 不含任何真实记录)\n-- Host: {{db_host}}    Database: {{db_name}}\n-- instance trace: {{instance.canary}}\nSET NAMES utf8mb4;\nDROP TABLE IF EXISTS `sys_user`;\nCREATE TABLE `sys_user` (`id` bigint(20) NOT NULL, `account` varchar(64), `real_name` varchar(64), `mobile` varchar(20), `password` varchar(120), `dept_id` int(11));\nINSERT INTO `sys_user` VALUES (10001,'zhangw','张**','138****{{rand.int}}','$2a$10${{rand.hex}}{{rand.hex}}',101);\nINSERT INTO `sys_user` VALUES (10002,'liy','李**','139****{{rand.int}}','$2a$10${{rand.hex}}{{rand.hex}}',102);\nINSERT INTO `sys_user` VALUES (10003,'wangm','王**','136****{{rand.int}}','$2a$10${{rand.hex}}{{rand.hex}}',102);\nDROP TABLE IF EXISTS `sys_config`;\nINSERT INTO `sys_config` VALUES (1,'gov.oss.access-key-id','{{api_token}}');\nINSERT INTO `sys_config` VALUES (2,'gov.oss.access-key-secret','{{app_key}}');\n-- Dump completed on {{instance.now}}\n"
+    },
+    {
+      "path": "/sitemap.xml",
+      "method": "GET",
+      "kind": "listing",
+      "status": 200,
+      "title": "sitemap",
+      "content_type": "application/xml; charset=utf-8",
+      "honeytokens": [],
+      "body": "<?xml version='1.0' encoding='UTF-8'?>\n<urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9'>\n  <url><loc>http://{{instance.host}}/</loc><lastmod>{{rand.date}}</lastmod></url>\n  <url><loc>http://{{instance.host}}/login</loc><lastmod>{{rand.date}}</lastmod></url>\n  <url><loc>http://{{instance.host}}/admin</loc><lastmod>{{rand.date}}</lastmod></url>\n  <url><loc>http://{{instance.host}}/api/docs</loc><lastmod>{{rand.date}}</lastmod></url>\n  <url><loc>http://{{instance.host}}/config/application-prod.yml</loc><lastmod>{{rand.date}}</lastmod></url>\n  <url><loc>http://{{instance.host}}/backup/gov_portal_20240912.sql</loc><lastmod>{{rand.date}}</lastmod></url>\n</urlset>\n<!-- trace {{instance.canary}} -->\n"
+    },
+    {
+      "path": "/static/",
+      "method": "GET",
+      "kind": "listing",
+      "status": 200,
+      "title": "Index of /static/",
+      "honeytokens": [],
+      "body": "<!DOCTYPE html><html><head><title>Index of /static/</title></head><body><h1>Index of /static/</h1><pre><a href='../'>../</a>\n<a href='css/'>css/</a>                                                    {{rand.date}} 10:2{{rand.int:1-9}}\n<a href='js/'>js/</a>                                                      {{rand.date}} 10:2{{rand.int:1-9}}\n<a href='admin/'>admin/</a>                                                {{rand.date}} 09:1{{rand.int:1-9}}\n<a href='app.jar'>app.jar</a>                                                41M  {{rand.date}} 08:{{rand.int:10-59}}\n<a href='application-prod.yml.bak'>application-prod.yml.bak</a>                              3.2K {{rand.date}} 08:{{rand.int:10-59}}\n<a href='gov_portal_20240912.sql'>gov_portal_20240912.sql</a>                                 28M  {{rand.date}} 03:0{{rand.int:1-9}}\n<a href='.DS_Store'>.DS_Store</a>                                              6.0K {{rand.date}} 09:3{{rand.int:1-9}}\n</pre><p>nginx/1.24.0 (Ubuntu) Server at {{instance.host}} Port {{instance.port}}</p><!-- trace {{instance.canary}} --></body></html>"
+    },
+    {
+      "path": "/api/v2/users",
+      "method": "GET",
+      "kind": "error",
+      "status": 404,
+      "title": "404",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": [],
+      "note": "404 诱饵: 提示旧版本接口已下线, 把攻击者引回 v1",
+      "body": "{\n  \"timestamp\": \"{{instance.now}}\",\n  \"status\": 404,\n  \"error\": \"Not Found\",\n  \"message\": \"No handler found for GET /api/v2/users\",\n  \"path\": \"/api/v2/users\",\n  \"hint\": \"v2 接口已于 2024-06 下线, v1 接口仍然可用: /api/v1/users ; 内部对接请使用 /api/v1/internal/config\",\n  \"trace\": \"{{instance.canary}}\"\n}"
+    }
+  ],
+  "vulnerabilities": [
+    {
+      "path": "/api/v1/users",
+      "method": "GET",
+      "type": "sqli",
+      "param": "id",
+      "severity": "high",
+      "note": "假 SQL 注入: 只回伪造的驱动报错, 不存在任何真实注入",
+      "error_body": "{\n  \"timestamp\": \"{{instance.now}}\",\n  \"status\": 500,\n  \"error\": \"Internal Server Error\",\n  \"message\": \"### Error querying database. Cause: java.sql.SQLSyntaxErrorException: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '{{payload}}' at line 1\",\n  \"query\": \"SELECT user_id,account,real_name,mobile,role FROM sys_user WHERE id = {{param}} LIMIT 20\",\n  \"driver\": \"com.mysql.jdbc.Driver (MySQL 5.7.42, {{db_host}})\",\n  \"hint\": \"可尝试报错注入或 UNION, 详情见 /api/docs\",\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/api/v1/services/detail",
+      "method": "GET",
+      "type": "idor",
+      "param": "id",
+      "severity": "high",
+      "note": "假越权: 返回他人办件的脱敏快照",
+      "response_body": "{\n  \"code\": 0,\n  \"warning\": \"未校验数据归属, 已按 id 直查\",\n  \"data\": {\n    \"service_id\": \"{{param}}\",\n    \"applicant\": {\"name\": \"李**\", \"cert_no\": \"3301**********{{rand.int}}\", \"mobile\": \"139****{{rand.int}}\", \"address\": \"示例市示例区示例路 {{rand.int}} 号\"},\n    \"company\": \"示例科技(演示)有限公司\",\n    \"social_credit_code\": \"91{{rand.hex}}{{rand.hex}}\",\n    \"attachment\": \"{{hex16}}.pdf @ {{file_host}}\",\n    \"review_comment\": \"材料齐全, 建议通过\"\n  },\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/api/v1/files/download",
+      "method": "GET",
+      "type": "lfi",
+      "param": "file",
+      "severity": "critical",
+      "note": "假目录遍历: 返回伪造的 /etc/passwd 与配置片段",
+      "response_body": "{\n  \"code\": 0,\n  \"requested\": \"{{payload}}\",\n  \"resolved\": \"/data/gov-portal/upload/{{payload}}\",\n  \"exists\": true,\n  \"content_preview\": \"root:x:0:0:root:/root:/bin/bash\\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\\ngovapp:x:1001:1001::/home/govapp:/bin/bash\\n# 相邻可读: /config/application-prod.yml, /.git/config, /backup/gov_portal_20240912.sql\\n# trace {{instance.canary}}\",\n  \"note\": \"path traversal 未被拦截, 但仅返回伪造内容\"\n}"
+    },
+    {
+      "path": "/actuator/env",
+      "method": "GET",
+      "type": "unauthorized",
+      "param": "",
+      "severity": "critical",
+      "note": "假未鉴权: actuator 全端点暴露, 泄漏的是水印凭据",
+      "response_body": "{\n  \"activeProfiles\": [\"prod\"],\n  \"propertySources\": [{\"name\": \"applicationConfig: [classpath:/application-prod.yml]\", \"properties\": {\n    \"spring.datasource.url\": {\"value\": \"{{db_dsn}}\"},\n    \"spring.datasource.password\": {\"value\": \"{{db_password}}\"},\n    \"spring.redis.password\": {\"value\": \"{{jwt_secret}}\"},\n    \"gov.oss.access-key-secret\": {\"value\": \"{{app_key}}\"}\n  }}],\n  \"hint\": \"management.endpoints.web.exposure.include=*\",\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/admin",
+      "method": "POST",
+      "type": "unauthorized",
+      "param": "username",
+      "severity": "medium",
+      "note": "假后台: 任何口令都返回认证失败并记录提交内容",
+      "error_body": "<!DOCTYPE html><html><head><meta charset='utf-8'><title>认证失败</title></head><body><h1>管理员认证失败</h1><p>ADMIN-AUTH-1002: 账号 {{param}} 不存在或口令错误</p><p>来源 {{client_ip}} / UA {{user_agent}}</p><p>本次提交已写入审计日志 {{server.log_path}} (事件 {{hex16}})</p><p>连续失败 5 次将锁定账号, 请通过 VPN 访问内网管理地址。</p></body></html>"
+    }
+  ],
+  "payload_profile": "passive",
+  "tarpit_profile": "light",
+  "detection": {
+    "path_playbook": ["/", "/robots.txt", "/sitemap.xml", "/login", "/admin", "/api/docs", "/v2/api-docs", "/actuator", "/actuator/env", "/actuator/health", "/.git/config", "/config/application-prod.yml", "/api/v1/services", "/api/v1/users", "/api/v1/internal/config", "/backup/gov_portal_20240912.sql"],
+    "noise_paths": ["/favicon.ico", "/static/css/portal.css", "/static/js/portal.js", "/health", "/robots.txt"]
+  }
+}

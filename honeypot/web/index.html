@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CogTrap · 值守台</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">CogTrap</span>
+    <span class="brand-sub">认知蜜罐值守台</span>
+  </div>
+
+  <div class="meta">
+    <span class="meta-item"><span class="meta-label">实例</span><b id="m-instance">—</b></span>
+    <span class="meta-item"><span class="meta-label">模板</span><b id="m-template">—</b></span>
+    <span class="meta-item"><span class="meta-label">场景</span><b id="m-scenario">—</b></span>
+    <span class="meta-item"><span class="meta-label">运行</span><b id="m-uptime">—</b></span>
+  </div>
+
+  <div class="live">
+    <span class="live-dot" id="live-dot"></span>
+    <span class="live-text" id="live-text">连接中</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- 一行关键计数 -->
+  <section class="counters" id="counters"></section>
+
+  <!-- 确证证据: 本系统最有价值的产出, 置于最显眼处 -->
+  <section class="panel panel--hero">
+    <div class="panel-head">
+      <h2>确证证据</h2>
+      <p class="panel-note">
+        这五类证据是上报材料的主体。传统扫描器无法产生「金丝雀回显」与「指令服从」——
+        它们不解析响应内容, 物理上做不到把令牌回填进后续请求。
+        <span id="evidence-total" class="evidence-total"></span>
+      </p>
+    </div>
+
+    <div class="evidence-grid" id="evidence-counts"></div>
+
+    <div class="evidence-list" id="evidence-list">
+      <div class="empty">暂无确证证据。等待自动化目标交互…</div>
+    </div>
+  </section>
+
+  <div class="grid">
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>处置动作分布</h2>
+        <p class="panel-note">按会话当前所处处置档统计。拖滞会真实放大对方的时间成本。</p>
+      </div>
+      <div class="chart" id="chart-actions"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>检测信号命中</h2>
+        <p class="panel-note">命中次数越高说明该特征越有区分度, 可用于调参。</p>
+      </div>
+      <div class="chart" id="chart-signals"></div>
+    </section>
+
+  </div>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>会话</h2>
+      <p class="panel-note">
+        按最后活动时间倒序。分数 0–100, 判定为 <code>llm_agent</code> 表示已确认是
+        大模型驱动的攻击单元。
+      </p>
+    </div>
+    <div class="table-wrap">
+      <table class="table" id="table-sessions">
+        <thead>
+          <tr>
+            <th>判定</th><th class="num">分数</th><th>处置</th>
+            <th>源 IP</th><th class="num">请求</th><th class="num">拖滞</th>
+            <th>行为哈希</th><th>User-Agent</th>
+          </tr>
+        </thead>
+        <tbody><tr><td colspan="8" class="empty">加载中…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="grid">
+
+    <!-- 两列内容量刻意配平: 左列 = 战役归因 + 蜜标与处置, 右列 = 告警尾部。
+         上一版把蜜标统计与告警挤在同一卡里, 导致左列早早结束、左下角留出
+         一大片空白, 两列底边明显不齐。 -->
+    <section class="panel">
+      <div class="panel-head">
+        <h2>战役归因</h2>
+        <p class="panel-note">
+          按<strong>行为哈希</strong>聚合, 而非源 IP。攻击方轮换代理或换 VPS 时,
+          UA/头部顺序/路径集合/载荷类型这四项高度稳定, 因此同一操作者的多个来源
+          会被串成一个战役。
+        </p>
+      </div>
+      <div id="campaigns" class="stack">
+        <div class="empty">暂无战役</div>
+      </div>
+      <div class="divider"></div>
+      <div class="panel-head"><h3>蜜标与处置</h3></div>
+      <div class="kv" id="tokens"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>告警尾部</h2>
+        <p class="panel-note">
+          高于告警阈值或出现确证证据时落库, 与 <code>logs/alerts.log</code> 同源。
+        </p>
+      </div>
+      <div class="logtail logtail--tall" id="alerts"><div class="empty">暂无告警</div></div>
+    </section>
+
+  </div>
+
+</main>
+
+<footer class="foot">
+  <span>CogTrap · 面向大模型驱动攻击的蜜罐防御与反制体系</span>
+  <span class="foot-warn">
+    仅限部署于自有或已获书面授权的资产 · 反制全部发生在己方服务端响应内容中, 不主动连接攻击方主机
+  </span>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "id": "internal-tripwire",
+  "name": "内网绊线 · 静默取证",
+  "description": "部署在内网的静默绊线。不做拖滞、不投载荷、不做任何主动干预, 只记录并告警。",
+  "author": "cogtrap",
+  "tags": ["internal", "tripwire", "silent"],
+  "intended_use": "内网横向移动检测。内网出现端口扫描或凭据尝试, 本身就是强信号 —— 此时最需要的是**安静地把证据留住**, 而不是惊动攻击者。",
+  "template": "hospital-his",
+  "overrides": {
+    "branding": {
+      "site_name": "示例医院信息系统"
+    }
+  },
+  "countermeasures": {
+    "enabled": false,
+    "min_score": 100,
+    "max_tier": 0,
+    "include": [],
+    "exclude": []
+  },
+  "tarpit": {
+    "profile": "light",
+    "base_delay": 0.0,
+    "growth": 1.0,
+    "max_delay": 0.3,
+    "drip_chunks": 1
+  },
+  "detection": {
+    "thresholds": {
+      "serve_watch": 12,
+      "tarpit": 30,
+      "deceive_inject": 60,
+      "lockdown": 88
+    },
+    "weight_overrides": {
+      "honeypot_path": 20,
+      "honeytoken_read": 35,
+      "multi_ip_same_toolchain": 25
+    },
+    "path_playbook": []
+  },
+  "blocking": {
+    "mode": "absorb",
+    "auto_threshold": 100,
+    "ttl_seconds": 900,
+    "armed": false,
+    "apply": false
+  },
+  "notes": "载荷全关、拖滞接近零、阻断阈值设为不可能达到的 100 —— 这个场景刻意放弃反制, 只做取证。理由是内网环境里\"惊动攻击者\"的代价远高于外网: 它一旦察觉就会停止横向移动并转为隐蔽驻留, 我们反而失去发现它的机会。detection 权重上调了蜜标读取与跨源关联, 因为内网诱饵的核心价值就是抓到\"谁在横向移动\"。注意白名单会天然保护内网段不被防火墙处置, 所以 auto_threshold=100 只是双重保险。"
+}

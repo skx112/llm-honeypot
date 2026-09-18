@@ -1,0 +1,188 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  # 允许手动重跑, 便于在依赖或 runner 镜像变动后重新验证
+  workflow_dispatch:
+
+# 同一分支的旧运行在新推送后取消, 避免排队堆积
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: 测试 (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 现代开发环境。地板版本 3.6 单独用容器跑(见 test-legacy)。
+        python-version: ["3.9", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: 语法编译检查
+        run: python -m compileall -q honeypot tools tests
+
+      - name: 运行测试(零依赖运行器)
+        run: python tests/run.py
+
+  test-legacy:
+    # 部署目标是 CentOS 8 自带的 Python 3.6.8, 因此必须真的在 3.6 上跑一遍。
+    #
+    # 为什么用容器而不是 actions/setup-python: 3.6 早已 EOL, 官方 versions
+    # manifest 不再为 ubuntu-22.04/24.04 提供它, setup-python 会直接报
+    # "version not found" —— 那样这个 job 会因为环境问题而非代码问题变红。
+    # 容器镜像里带着完整的 3.6 与 git, 是最直接的验证方式。
+    name: 测试 (Python 3.6 — 部署目标版本)
+    runs-on: ubuntu-latest
+    container: python:3.6-buster
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 确认解释器版本
+        run: python -V
+
+      - name: 语法编译检查
+        run: python -m compileall -q honeypot tools tests
+
+      - name: 运行测试(零依赖运行器)
+        run: python tests/run.py
+
+  zero-dependency:
+    name: 零依赖约束校验
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 确认没有第三方导入
+        run: |
+          # 这是本项目的硬性设计约束: 在专门用于诱捕攻击者的主机上引入第三方
+          # 依赖等于自愿扩大供应链攻击面。任何新增依赖的 PR 都应被拒绝。
+          python - <<'PY'
+          import ast, os, sys, sysconfig
+
+          def stdlib_names():
+              """从解释器自身的文件系统推导标准库模块名。
+
+              不能只用 sys.stdlib_module_names: 它在 Python 3.10 才引入, 而在
+              更早的版本上回退到 sys.builtin_module_names 会把 json/re/urllib
+              这些标准库全判成第三方依赖 —— 在部署目标版本(3.6)上跑这个检查
+              会得到满屏假阳性(实测)。从 stdlib 目录列举则各版本都可靠。
+              """
+              names = set(sys.builtin_module_names)
+              bases = []
+              for key in ("stdlib", "platstdlib"):
+                  value = sysconfig.get_paths().get(key)
+                  if value:
+                      bases.append(value)
+              for base in bases:
+                  if not os.path.isdir(base):
+                      continue
+                  for entry in os.listdir(base):
+                      full = os.path.join(base, entry)
+                      if entry.endswith(".py"):
+                          names.add(entry[:-3])
+                      elif os.path.isdir(full) and \
+                              os.path.exists(os.path.join(full, "__init__.py")):
+                          names.add(entry)
+                  dynload = os.path.join(base, "lib-dynload")
+                  if os.path.isdir(dynload):
+                      for entry in os.listdir(dynload):
+                          names.add(entry.split(".")[0])
+              names.discard("__pycache__")
+              return names
+
+          STDLIB = stdlib_names()
+
+          LOCAL = set()
+          for root, _, files in os.walk("."):
+              if ".git" in root or "__pycache__" in root:
+                  continue
+              for name in files:
+                  if name.endswith(".py"):
+                      LOCAL.add(name[:-3])
+
+          violations = []
+          for root, _, files in os.walk("."):
+              if ".git" in root or "__pycache__" in root:
+                  continue
+              for name in files:
+                  if not name.endswith(".py"):
+                      continue
+                  path = os.path.join(root, name)
+                  tree = ast.parse(open(path, encoding="utf-8").read())
+                  for node in ast.walk(tree):
+                      if isinstance(node, ast.Import):
+                          modules = [a.name.split(".")[0] for a in node.names]
+                      elif isinstance(node, ast.ImportFrom):
+                          modules = [node.module.split(".")[0]] if node.module else []
+                      else:
+                          continue
+                      for module in modules:
+                          if module and module not in STDLIB and module not in LOCAL:
+                              violations.append("%s: %s" % (path, module))
+
+          if violations:
+              print("发现第三方依赖(本项目禁止):")
+              for item in violations:
+                  print("  -", item)
+              sys.exit(1)
+          print("零依赖约束满足: 未发现任何第三方导入")
+          PY
+
+  docs:
+    name: 文档链接完整性
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 校验文档内相对链接指向存在的文件
+        run: |
+          python - <<'PY'
+          import os, re, sys
+
+          pattern = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
+          broken = []
+          for root, dirs, files in os.walk("."):
+              dirs[:] = [d for d in dirs if d not in (".git", "node_modules")]
+              for name in files:
+                  if not name.endswith(".md"):
+                      continue
+                  path = os.path.join(root, name)
+                  text = open(path, encoding="utf-8").read()
+                  for target in pattern.findall(text):
+                      if target.startswith(("http://", "https://", "mailto:", "#")):
+                          continue
+                      target = target.split("#")[0]
+                      if not target:
+                          continue
+                      if not os.path.exists(os.path.normpath(os.path.join(root, target))):
+                          broken.append("%s -> %s" % (path, target))
+
+          if broken:
+              print("以下文档链接指向不存在的文件:")
+              for item in broken:
+                  print("  -", item)
+              sys.exit(1)
+          print("文档链接完整")
+          PY

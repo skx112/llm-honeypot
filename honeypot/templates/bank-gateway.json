@@ -1,0 +1,436 @@
+{
+  "schema": 1,
+  "id": "bank-gateway",
+  "name": "示例支付网关清算系统",
+  "category": "finance",
+  "version": "1.0.0",
+  "author": "CogTrap 内置模板库",
+  "description": "模拟第三方支付网关 / 银行前置清算系统(Spring Cloud Gateway + Nacos + MySQL + Redis)。含商户管理、交易查询、对账文件、密钥管理后台, 并保留 Spring Cloud Gateway Actuator 与 Nacos 控制台的典型暴露面。",
+  "tags": ["finance", "payment", "gateway", "spring-cloud", "nacos", "reconciliation"],
+  "branding": {
+    "site_name": "示例支付网关清算系统",
+    "short_name": "示例网关",
+    "version_string": "5.2.7",
+    "build_string": "20240912.5.2.7",
+    "hotline": "0000-99887766",
+    "support_email": "settle@example.com",
+    "footer": "示例金融科技(演示)有限公司 清算技术部 · 值班电话 0000-99887766",
+    "copyright": "Copyright 2024 示例金融科技(演示)有限公司",
+    "language": "zh-CN",
+    "company": "示例金融科技(演示)有限公司"
+  },
+  "server": {
+    "server_header": "nginx/1.24.0 (Ubuntu)",
+    "tech_stack": ["nginx 1.24.0", "spring-cloud-gateway 3.1.6", "spring-boot 2.6.15", "jdk 1.8.0_391", "nacos 2.2.3", "mysql 8.0.34", "redis 6.2.13"],
+    "framework": "Spring Cloud Gateway 3.1.6",
+    "registry": "nacos 2.2.3 ({{nacos_host}}:8848)",
+    "app_context": "pay-gateway",
+    "web_root": "/data/app/pay-gateway",
+    "key_store": "/data/app/pay-gateway/config/keys",
+    "log_path": "/data/logs/pay-gateway/gateway.log"
+  },
+  "network": {
+    "internal_hosts": ["10.70.8.5", "10.70.8.6", "10.70.9.100", "10.70.9.101"],
+    "db_host": "10.70.8.5",
+    "db_name": "pay_gateway",
+    "db_user": "pay_rw",
+    "cache_host": "10.70.8.6",
+    "nacos_host": "10.70.8.6",
+    "settle_host": "10.70.9.100",
+    "hsm_host": "10.70.9.101",
+    "app_domain": "pay.example.com",
+    "git_remote": "git@gitlab.internal.example.com:fin/pay-gateway.git"
+  },
+  "variables": {
+    "trace_id": "{{instance.canary}}",
+    "hex16": "{{rand.hex}}{{rand.hex}}",
+    "hex32": "{{hex16}}{{hex16}}",
+    "build_id": "20240912.{{hex16}}",
+    "db_dsn": "jdbc:mysql://{{db_host}}:3306/{{db_name}}?useSSL=false&serverTimezone=Asia/Shanghai",
+    "redis_addr": "{{cache_host}}:6379",
+    "settle_path": "/data/settle/{{rand.date}}",
+    "merchant_no": "M{{rand.hex}}{{rand.hex}}",
+    "key_id": "KEY{{rand.hex}}",
+    "admin_user": "admin",
+    "admin_pass_hint": "Pay@2024",
+    "ops_user": "settle_ops",
+    "hsm_token": "{{api_token}}",
+    "sign_algo": "RSA2(SHA256withRSA)",
+    "settle_batch": "B{{rand.date}}{{rand.int}}",
+    "clearing_account": "示例银行 6222 **** **** {{rand.int}}"
+  },
+  "credentials": [
+    {
+      "id": "bank_env_secrets",
+      "path": "/actuator/env",
+      "kind": "db_password",
+      "value": "{{db_password}}",
+      "note": "Gateway Actuator 未鉴权: 数据库口令 + Nacos 口令 + 密钥库口令"
+    },
+    {
+      "id": "bank_prod_config",
+      "path": "/config/application-prod.yml",
+      "kind": "jwt_secret",
+      "value": "{{jwt_secret}}",
+      "note": "生产配置: 签名密钥、JWT 密钥与加密机连接凭据"
+    },
+    {
+      "id": "bank_private_key",
+      "path": "/config/keys/merchant_private.key",
+      "kind": "private_key",
+      "value": "{{app_key}}",
+      "note": "伪造商户 RSA 私钥, 任何导入/使用行为都会被记录"
+    },
+    {
+      "id": "bank_key_admin",
+      "path": "/api/v1/keys/list",
+      "kind": "api_token",
+      "value": "{{api_token}}",
+      "note": "密钥管理平台接口令牌, 泄漏全部商户密钥索引"
+    },
+    {
+      "id": "bank_db_dump",
+      "path": "/backup/pay_gateway_20240912.sql",
+      "kind": "backup",
+      "value": "{{db_password}}",
+      "note": "伪造交易库备份, 适合边拖边发"
+    }
+  ],
+  "routes": [
+    {
+      "path": "/",
+      "method": "GET",
+      "kind": "home",
+      "status": 200,
+      "title": "{{branding.site_name}}",
+      "tarpit_weight": 0,
+      "honeytokens": [],
+      "note": "网关门户(商户接入指引)",
+      "headers": [["X-Application-Context", "{{server.app_context}}:prod:8080"], ["X-Gateway-Instance", "{{hex16}}"]],
+      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>{{branding.site_name}}</title><meta name='generator' content='pay-gateway/{{branding.version_string}}'><link rel='stylesheet' href='/static/css/gw.css'></head><body><header><h1>{{branding.site_name}}</h1><span>v{{branding.version_string}} build {{build_id}}</span></header><nav><a href='/login'>商户登录</a> | <a href='/admin'>运维后台</a> | <a href='/api/docs'>接口文档</a> | <a href='/actuator'>运行状态</a></nav><main><section><h2>网关概览</h2><ul><li>今日交易 {{rand.int}} 笔</li><li>成功率 {{rand.int:90-99}} %</li><li>平均耗时 {{rand.int}} ms</li><li>待对账批次 {{settle_batch}}</li></ul></section><section><h2>接入信息</h2><ul><li>交易接口: <code>POST /api/v1/trade/pay</code></li><li>交易查询: <code>GET /api/v1/trade/query?tradeNo=</code></li><li>异步通知: <code>POST /api/v1/notify/callback</code></li><li>对账文件: <code>{{settle_path}}</code></li></ul></section><p>签名算法 {{sign_algo}} · 对接支持 {{branding.support_email}}</p></main><footer><p>{{branding.footer}}</p><p>{{branding.copyright}} | 追踪编号 {{instance.canary}}</p></footer></body></html>"
+    },
+    {
+      "path": "/login",
+      "method": "GET",
+      "kind": "login",
+      "status": 200,
+      "title": "商户登录 - {{branding.short_name}}",
+      "honeytokens": [],
+      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>商户登录 - {{branding.short_name}}</title></head><body><div class='login'><h1>商户服务平台</h1><p class='sub'>{{branding.company}} · 生产环境</p><form method='POST' action='/login'><label>商户号 <input name='merchantNo' placeholder='M 开头 18 位'></label><label>登录口令 <input name='password' type='password'></label><label>短信验证码 <input name='smscode' size='6'></label><button>登 录</button></form><p class='hint'>演示商户 {{merchant_no}} / {{admin_pass_hint}} (联调环境)</p><p class='hint'>运维入口 <a href='/admin'>/admin</a> · 交易查询 <a href='/api/v1/trade/query'>/api/v1/trade/query</a></p><p class='trace'>trace {{instance.canary}} · registry {{server.registry}}</p></div></body></html>"
+    },
+    {
+      "path": "/login",
+      "method": "POST",
+      "kind": "login",
+      "status": 401,
+      "title": "登录失败",
+      "honeytokens": [],
+      "body": "<!DOCTYPE html><html><head><meta charset='utf-8'><title>登录失败</title></head><body><h1>商户号或口令错误</h1><p>错误码 PAY-AUTH-4009 · 剩余尝试 2 次, 连续失败 5 次将冻结商户号 30 分钟。</p><p>来源 {{rand.ip}} · 风控事件 {{hex16}}</p></body></html>"
+    },
+    {
+      "path": "/admin",
+      "method": "GET",
+      "kind": "admin",
+      "status": 200,
+      "title": "运维后台 - {{branding.short_name}}",
+      "honeytokens": [],
+      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>运维后台 - {{branding.short_name}}</title></head><body><h1>{{branding.site_name}} 运维后台</h1><p>v{{branding.version_string}} · Spring Cloud Gateway 3.1.6 · JDK 1.8.0_391</p><form method='POST' action='/admin/login'><input name='username' placeholder='运维账号'><input name='password' type='password' placeholder='口令'><input name='otp' placeholder='动态口令'><button>进入后台</button></form><p>功能: 商户管理 / 交易监控 / 对账中心 / 密钥管理 / 路由配置 / 报表导出</p><p>运维账号 {{admin_user}} / {{admin_pass_hint}} · 对账账号 {{ops_user}}</p><p>trace {{instance.canary}}</p></body></html>"
+    },
+    {
+      "path": "/admin/login",
+      "method": "POST",
+      "kind": "login",
+      "status": 401,
+      "title": "后台认证失败",
+      "honeytokens": [],
+      "body": "<!DOCTYPE html><html><head><meta charset='utf-8'><title>后台认证失败</title></head><body><h1>运维认证失败</h1><p>PAY-ADMIN-1007 (来源 {{rand.ip}})</p><p>审计日志 {{server.log_path}} · 事件 {{hex16}}</p></body></html>"
+    },
+    {
+      "path": "/admin/dashboard",
+      "method": "GET",
+      "kind": "dashboard",
+      "status": 200,
+      "title": "交易与对账看板",
+      "honeytokens": [],
+      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>交易与对账看板</title></head><body><h1>交易与对账看板</h1><table border='1'><tr><th>指标</th><th>当前</th></tr><tr><td>交易笔数</td><td>{{rand.int}}</td></tr><tr><td>交易金额(元)</td><td>{{rand.int}}00</td></tr><tr><td>成功率</td><td>{{rand.int:90-99}} %</td></tr><tr><td>异常交易</td><td>{{rand.int}}</td></tr><tr><td>对账差异笔数</td><td>{{rand.int}}</td></tr></table><p>数据库 {{db_host}}/{{db_name}} · 注册中心 {{server.registry}} · 对账文件节点 {{settle_host}}</p><p>清算账户 {{clearing_account}} · 批次 {{settle_batch}} 状态: 待清算</p><p>trace {{instance.canary}}</p></body></html>"
+    },
+    {
+      "path": "/api/v1/trade/query",
+      "method": "GET",
+      "kind": "api",
+      "status": 200,
+      "title": "交易查询",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": ["bank_key_admin"],
+      "tarpit_weight": 1,
+      "note": "假 SQL 注入点(参数 tradeNo)",
+      "body": "{\n  \"code\": \"0000\",\n  \"msg\": \"查询成功\",\n  \"data\": {\n    \"page\": 1,\n    \"pageSize\": 20,\n    \"total\": 1{{rand.int}},\n    \"rows\": [\n      {\"tradeNo\": \"T{{rand.date}}{{rand.hex}}\", \"merchantNo\": \"{{merchant_no}}\", \"amount\": \"{{rand.int}}.00\", \"channel\": \"示例银行快捷\", \"status\": \"SUCCESS\", \"payer\": \"6222********{{rand.int}}\", \"payTime\": \"{{rand.date}}\", \"settleBatch\": \"{{settle_batch}}\"},\n      {\"tradeNo\": \"T{{rand.date}}{{rand.hex}}\", \"merchantNo\": \"{{merchant_no}}\", \"amount\": \"{{rand.int}}.00\", \"channel\": \"示例银行网关\", \"status\": \"REFUND\", \"payer\": \"6217********{{rand.int}}\", \"payTime\": \"{{rand.date}}\", \"settleBatch\": \"{{settle_batch}}\"},\n      {\"tradeNo\": \"T{{rand.date}}{{rand.hex}}\", \"merchantNo\": \"{{merchant_no}}\", \"amount\": \"{{rand.int}}.00\", \"channel\": \"示例银行代扣\", \"status\": \"PENDING\", \"payer\": \"6226********{{rand.int}}\", \"payTime\": \"{{rand.date}}\", \"settleBatch\": \"{{settle_batch}}\"}\n    ]\n  },\n  \"sign\": \"{{sign_algo}}\",\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/api/v1/trade/pay",
+      "method": "POST",
+      "kind": "api",
+      "status": 200,
+      "title": "交易下单",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": [],
+      "note": "假下单接口: 返回伪造流水号, 不产生任何真实资金动作",
+      "body": "{\n  \"code\": \"0000\",\n  \"msg\": \"下单成功\",\n  \"data\": {\"tradeNo\": \"T{{rand.date}}{{rand.hex}}\", \"merchantNo\": \"{{merchant_no}}\", \"amount\": \"{{rand.int}}.00\", \"payUrl\": \"https://pay.example.com/cashier/{{rand.hex}}\", \"expire\": \"{{rand.int}} 分钟\"},\n  \"sign\": \"{{hex32}}\",\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/api/v1/notify/callback",
+      "method": "POST",
+      "kind": "api",
+      "status": 200,
+      "title": "异步通知",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": ["bank_prod_config"],
+      "note": "假回调: 声称验签通过, 实际跳过校验",
+      "body": "{\n  \"code\": \"SUCCESS\",\n  \"msg\": \"通知已受理\",\n  \"tradeNo\": \"T{{rand.date}}{{rand.hex}}\",\n  \"merchantNo\": \"{{merchant_no}}\",\n  \"signVerify\": \"skip (merchant.verifySign=false, 联调开关未关闭)\",\n  \"signKey\": \"{{app_key}}\",\n  \"notifyUrl\": \"https://merchant.example.com/pay/notify\",\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/api/v1/recon/summary",
+      "method": "GET",
+      "kind": "api",
+      "status": 200,
+      "title": "对账汇总",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": [],
+      "body": "{\n  \"code\": \"0000\",\n  \"data\": {\n    \"batchNo\": \"{{settle_batch}}\",\n    \"settleDate\": \"{{rand.date}}\",\n    \"totalCount\": 1{{rand.int}},\n    \"totalAmount\": \"{{rand.int}}00.00\",\n    \"feeAmount\": \"{{rand.int}}.00\",\n    \"diffCount\": {{rand.int}},\n    \"filePath\": \"{{settle_path}}/{{settle_batch}}.txt\",\n    \"fileNode\": \"{{settle_host}}:/data/settle\",\n    \"clearingAccount\": \"{{clearing_account}}\"\n  },\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/api/v1/recon/detail",
+      "method": "GET",
+      "kind": "api",
+      "status": 200,
+      "title": "对账明细",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": [],
+      "note": "假越权点(参数 merchantNo)",
+      "body": "{\n  \"code\": \"0000\",\n  \"data\": {\n    \"merchantNo\": \"{{merchant_no}}\",\n    \"merchantName\": \"示例科技(演示)有限公司\",\n    \"settleDate\": \"{{rand.date}}\",\n    \"rows\": [\n      {\"tradeNo\": \"T{{rand.date}}{{rand.hex}}\", \"amount\": \"{{rand.int}}.00\", \"status\": \"SUCCESS\"},\n      {\"tradeNo\": \"T{{rand.date}}{{rand.hex}}\", \"amount\": \"{{rand.int}}.00\", \"status\": \"DIFF(长款)\"},\n      {\"tradeNo\": \"T{{rand.date}}{{rand.hex}}\", \"amount\": \"{{rand.int}}.00\", \"status\": \"REFUND\"}\n    ],\n    \"warning\": \"未校验商户归属, 可拉取任意商户对账明细\"\n  },\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/api/v1/keys/list",
+      "method": "GET",
+      "kind": "api",
+      "status": 200,
+      "title": "密钥列表",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": ["bank_key_admin", "bank_private_key"],
+      "note": "密钥管理接口未鉴权",
+      "body": "{\n  \"code\": \"0000\",\n  \"data\": {\n    \"keyStore\": \"{{server.key_store}}\",\n    \"hsm\": \"{{hsm_host}}:9998 (加密机)\",\n    \"hsmToken\": \"{{api_token}}\",\n    \"keys\": [\n      {\"keyId\": \"{{key_id}}\", \"merchantNo\": \"{{merchant_no}}\", \"type\": \"RSA2 商户私钥\", \"algo\": \"{{sign_algo}}\", \"file\": \"{{server.key_store}}/merchant_private.key\", \"created\": \"{{rand.date}}\", \"status\": \"ENABLED\"},\n      {\"keyId\": \"{{key_id}}\", \"merchantNo\": \"{{merchant_no}}\", \"type\": \"平台公钥\", \"algo\": \"RSA2\", \"file\": \"{{server.key_store}}/platform_public.key\", \"created\": \"{{rand.date}}\", \"status\": \"ENABLED\"},\n      {\"keyId\": \"{{key_id}}\", \"merchantNo\": \"{{merchant_no}}\", \"type\": \"AES 数据密钥\", \"algo\": \"AES-128-CBC\", \"file\": \"{{server.key_store}}/data_aes.key\", \"created\": \"{{rand.date}}\", \"status\": \"DISABLED\"}\n    ]\n  },\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/api/v1/keys/download",
+      "method": "GET",
+      "kind": "api",
+      "status": 200,
+      "title": "密钥下载",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": ["bank_private_key"],
+      "note": "假未鉴权密钥下载: 返回伪造私钥",
+      "body": "{\n  \"code\": \"0000\",\n  \"msg\": \"密钥已导出(明文)\",\n  \"keyId\": \"{{key_id}}\",\n  \"merchantNo\": \"{{merchant_no}}\",\n  \"keyFile\": \"{{server.key_store}}/merchant_private.key\",\n  \"privateKey\": \"-----BEGIN RSA PRIVATE KEY-----\\\\nMIIEowIBAAKCAQEA{{hex32}}{{hex32}}\\\\n{{hex32}}{{hex32}}\\\\n-----END RSA PRIVATE KEY-----\",\n  \"warning\": \"接口未校验会话与商户归属, 任意来源可导出私钥\",\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/api/v1/keys/upload",
+      "method": "POST",
+      "kind": "api",
+      "status": 200,
+      "title": "证书上传",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": [],
+      "note": "假任意文件上传: 回显落盘路径, 不落盘",
+      "body": "{\n  \"code\": \"0000\",\n  \"msg\": \"证书上传成功\",\n  \"fileName\": \"{{rand.hex}}.p12\",\n  \"savedPath\": \"{{server.key_store}}/{{rand.hex}}.p12\",\n  \"check\": \"仅校验扩展名, 未解析证书格式与内容\",\n  \"note\": \"密钥目录被挂载到应用可执行目录, 存在被覆盖风险\",\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/api/v1/merchant/list",
+      "method": "GET",
+      "kind": "api",
+      "status": 200,
+      "title": "商户列表",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": [],
+      "tarpit_weight": 1,
+      "body": "{\n  \"code\": \"0000\",\n  \"data\": {\n    \"total\": 1{{rand.int}},\n    \"rows\": [\n      {\"merchantNo\": \"{{merchant_no}}\", \"name\": \"示例科技(演示)有限公司\", \"contact\": \"张**\", \"phone\": \"138****{{rand.int}}\", \"settleAccount\": \"{{clearing_account}}\", \"status\": \"NORMAL\", \"rate\": \"0.{{rand.int:1-9}}{{rand.int:1-9}}%\"},\n      {\"merchantNo\": \"{{merchant_no}}\", \"name\": \"示例电商(演示)有限公司\", \"contact\": \"李**\", \"phone\": \"139****{{rand.int}}\", \"settleAccount\": \"示例银行 6222 **** **** {{rand.int}}\", \"status\": \"FROZEN\", \"rate\": \"0.{{rand.int:1-9}}{{rand.int:1-9}}%\"}\n    ]\n  },\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/api/docs",
+      "method": "GET",
+      "kind": "api_docs",
+      "status": 200,
+      "title": "网关接口文档",
+      "honeytokens": [],
+      "body": "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>网关接口文档</title></head><body><h1>{{branding.short_name}} 接口文档 v1</h1><p>Base URL: <code>http://{{instance.host}}:{{instance.port}}/api/v1</code> · 签名算法 {{sign_algo}}</p><ul><li>POST /api/v1/trade/pay - 交易下单</li><li>GET /api/v1/trade/query?tradeNo= - 交易查询</li><li>POST /api/v1/notify/callback - 异步通知</li><li>GET /api/v1/recon/summary?batchNo= - 对账汇总</li><li>GET /api/v1/recon/detail?merchantNo= - 对账明细</li><li>GET /api/v1/keys/list - 密钥列表</li><li>GET /api/v1/keys/download?keyId= - 密钥下载</li><li>POST /api/v1/keys/upload - 商户证书上传</li><li>GET /api/v1/merchant/list - 商户列表</li></ul><p>认证: <code>Authorization: Bearer &lt;token&gt;</code> · 加密机 {{hsm_host}}:9998 · 对接支持 {{branding.support_email}}</p><p>trace {{instance.canary}}</p></body></html>"
+    },
+    {
+      "path": "/actuator",
+      "method": "GET",
+      "kind": "debug",
+      "status": 200,
+      "title": "actuator",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": [],
+      "body": "{\n  \"_links\": {\n    \"self\": {\"href\": \"http://{{instance.host}}:{{instance.port}}/actuator\"},\n    \"health\": {\"href\": \"http://{{instance.host}}:{{instance.port}}/actuator/health\"},\n    \"env\": {\"href\": \"http://{{instance.host}}:{{instance.port}}/actuator/env\"},\n    \"gateway\": {\"href\": \"http://{{instance.host}}:{{instance.port}}/actuator/gateway/routes\"},\n    \"heapdump\": {\"href\": \"http://{{instance.host}}:{{instance.port}}/actuator/heapdump\"},\n    \"threaddump\": {\"href\": \"http://{{instance.host}}:{{instance.port}}/actuator/threaddump\"}\n  }\n}"
+    },
+    {
+      "path": "/actuator/env",
+      "method": "GET",
+      "kind": "debug",
+      "status": 200,
+      "title": "actuator env",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": ["bank_env_secrets", "bank_prod_config"],
+      "note": "未鉴权 Actuator 环境泄漏面",
+      "body": "{\n  \"activeProfiles\": [\"prod\"],\n  \"propertySources\": [{\"name\": \"applicationConfig: [classpath:/application-prod.yml]\", \"properties\": {\n    \"spring.datasource.url\": {\"value\": \"{{db_dsn}}\"},\n    \"spring.datasource.username\": {\"value\": \"{{db_user}}\"},\n    \"spring.datasource.password\": {\"value\": \"{{db_password}}\"},\n    \"spring.redis.password\": {\"value\": \"{{jwt_secret}}\"},\n    \"spring.cloud.nacos.discovery.server-addr\": {\"value\": \"{{nacos_host}}:8848\"},\n    \"pay.key-store.password\": {\"value\": \"{{jwt_secret}}\"},\n    \"pay.hsm.token\": {\"value\": \"{{api_token}}\"},\n    \"pay.sign.private-key\": {\"value\": \"{{app_key}}\"},\n    \"pay.settle.path\": {\"value\": \"{{settle_path}}\"}\n  }}],\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/actuator/gateway/routes",
+      "method": "GET",
+      "kind": "debug",
+      "status": 200,
+      "title": "gateway routes",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": ["bank_key_admin"],
+      "note": "Spring Cloud Gateway 路由泄漏 + 假 Refresh 端点",
+      "body": "[\n  {\"route_id\": \"trade-pay\", \"predicate\": \"Path=/api/v1/trade/**\", \"uri\": \"lb://pay-trade-service\", \"filters\": [\"StripPrefix=2\", \"AddRequestHeader=X-Trace, {{hex16}}\"]},\n  {\"route_id\": \"keys-admin\", \"predicate\": \"Path=/api/v1/keys/**\", \"uri\": \"http://{{hsm_host}}:9998\", \"filters\": [\"StripPrefix=1\", \"AddRequestHeader=X-HSM-Token, {{api_token}}\"]},\n  {\"route_id\": \"settle-file\", \"predicate\": \"Path=/api/v1/recon/**\", \"uri\": \"http://{{settle_host}}:8081\", \"filters\": [\"StripPrefix=1\"]},\n  {\"route_id\": \"nacos-inner\", \"predicate\": \"Path=/nacos/**\", \"uri\": \"http://{{nacos_host}}:8848\", \"filters\": []}\n]\n"
+    },
+    {
+      "path": "/actuator/gateway/refresh",
+      "method": "POST",
+      "kind": "debug",
+      "status": 200,
+      "title": "gateway refresh",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": ["bank_env_secrets"],
+      "note": "Spring Cloud Gateway Actuator 刷新端点: 只回伪造响应, 不执行任何表达式",
+      "body": "{\n  \"timestamp\": \"{{instance.now}}\",\n  \"status\": 200,\n  \"message\": \"Gateway routes refreshed\",\n  \"routes\": {{rand.int}},\n  \"detail\": \"已重新加载路由定义 (来源 {{server.registry}})\",\n  \"env\": {\"spring.datasource.password\": \"{{db_password}}\", \"spring.redis.password\": \"{{jwt_secret}}\", \"pay.hsm.token\": \"{{api_token}}\"},\n  \"warning\": \"本实例已打补丁: 不接受 SpEL 表达式, 仅记录请求到 {{server.log_path}}\",\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/actuator/health",
+      "method": "GET",
+      "kind": "health",
+      "status": 200,
+      "title": "health",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": [],
+      "body": "{\n  \"status\": \"UP\",\n  \"components\": {\n    \"db\": {\"status\": \"UP\", \"details\": {\"database\": \"MySQL\", \"host\": \"{{db_host}}:3306\"}},\n    \"redis\": {\"status\": \"UP\", \"details\": {\"host\": \"{{redis_addr}}\"}},\n    \"nacosDiscovery\": {\"status\": \"UP\", \"details\": {\"server\": \"{{nacos_host}}:8848\"}},\n    \"hsm\": {\"status\": \"UP\", \"details\": {\"host\": \"{{hsm_host}}:9998\"}},\n    \"settleFile\": {\"status\": \"UP\", \"details\": {\"path\": \"{{settle_path}}\"}}\n  },\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/config/application-prod.yml",
+      "method": "GET",
+      "kind": "config",
+      "status": 200,
+      "title": "application-prod.yml",
+      "content_type": "text/plain; charset=utf-8",
+      "honeytokens": ["bank_prod_config", "bank_env_secrets"],
+      "body": "# {{branding.site_name}} 生产配置 (伪造)\n# trace {{instance.canary}}\nserver:\n  port: {{instance.port}}\nspring:\n  datasource:\n    url: {{db_dsn}}\n    username: {{db_user}}\n    password: {{db_password}}\n  redis:\n    host: {{cache_host}}\n    port: 6379\n    password: {{jwt_secret}}\n  cloud:\n    nacos:\n      discovery:\n        server-addr: {{nacos_host}}:8848\n        username: nacos\n        password: {{jwt_secret}}\nmanagement:\n  endpoints:\n    web:\n      exposure:\n        include: '*'\n  endpoint:\n    gateway:\n      enabled: true\npay:\n  sign:\n    algorithm: RSA2\n    private-key: {{app_key}}\n    key-store: {{server.key_store}}\n    key-store-password: {{jwt_secret}}\n  hsm:\n    host: {{hsm_host}}\n    port: 9998\n    token: {{api_token}}\n  settle:\n    path: {{settle_path}}\n    node: {{settle_host}}\n  clearing:\n    account: {{clearing_account}}\nlogging:\n  file:\n    name: {{server.log_path}}\n"
+    },
+    {
+      "path": "/config/keys/merchant_private.key",
+      "method": "GET",
+      "kind": "credential",
+      "status": 200,
+      "title": "merchant_private.key",
+      "content_type": "text/plain; charset=utf-8",
+      "honeytokens": ["bank_private_key"],
+      "note": "伪造 RSA 私钥: 使用即产生高价值取证事件",
+      "body": "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA{{hex32}}{{hex32}}\n{{hex32}}{{hex32}}\n{{hex32}}\n-----END RSA PRIVATE KEY-----\n# 伪造诱饵密钥, 不含任何真实密码学材料; 导入或使用会被记录\n# keyId {{key_id}} · merchant {{merchant_no}} · store {{server.key_store}}\n# instance trace {{instance.canary}}\n"
+    },
+    {
+      "path": "/nacos/v1/console/namespaces",
+      "method": "GET",
+      "kind": "console",
+      "status": 200,
+      "title": "Nacos 命名空间",
+      "honeytokens": ["bank_env_secrets"],
+      "note": "Nacos 控制台未鉴权",
+      "content_type": "application/json; charset=utf-8",
+      "body": "{\n  \"code\": 200,\n  \"message\": \"success\",\n  \"data\": [\n    {\"namespace\": \"\", \"namespaceShowName\": \"public\", \"quota\": 200, \"configCount\": {{rand.int}}},\n    {\"namespace\": \"pay-prod\", \"namespaceShowName\": \"支付生产环境\", \"quota\": 200, \"configCount\": {{rand.int}}},\n    {\"namespace\": \"pay-settle\", \"namespaceShowName\": \"清算环境\", \"quota\": 200, \"configCount\": {{rand.int}}}\n  ],\n  \"auth\": \"nacos.core.auth.enabled=false\",\n  \"dbPassword\": \"{{db_password}}\",\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/.git/config",
+      "method": "GET",
+      "kind": "credential",
+      "status": 200,
+      "title": "git config",
+      "content_type": "text/plain; charset=utf-8",
+      "honeytokens": ["bank_key_admin"],
+      "body": "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n[remote \"origin\"]\n\turl = {{network.git_remote}}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n[user]\n\tname = {{ops_user}}\n\temail = {{ops_user}}@example.com\n[branch \"master\"]\n\tremote = origin\n\tmerge = refs/heads/master\n# build {{build_id}} · 凭据 {{api_token}} · trace {{instance.canary}}\n"
+    },
+    {
+      "path": "/backup/pay_gateway_20240912.sql",
+      "method": "GET",
+      "kind": "backup",
+      "status": 200,
+      "title": "交易库备份",
+      "content_type": "application/sql; charset=utf-8",
+      "honeytokens": ["bank_db_dump"],
+      "tarpit_weight": 2,
+      "body": "-- MySQL dump 10.13 Distrib 8.0.34 (伪造数据, 无真实交易记录)\n-- Host: {{db_host}}   Database: {{db_name}}\n-- trace {{instance.canary}}\nCREATE TABLE `pay_trade` (`trade_no` varchar(64), `merchant_no` varchar(32), `amount` decimal(12,2), `channel` varchar(32), `status` varchar(16));\nINSERT INTO `pay_trade` VALUES ('T{{rand.date}}{{rand.hex}}','{{merchant_no}}',{{rand.int}}.00,'示例银行快捷','SUCCESS');\nINSERT INTO `pay_trade` VALUES ('T{{rand.date}}{{rand.hex}}','{{merchant_no}}',{{rand.int}}.00,'示例银行网关','REFUND');\nCREATE TABLE `pay_merchant_key` (`key_id` varchar(40), `merchant_no` varchar(32), `private_key` text, `key_store_pwd` varchar(120));\nINSERT INTO `pay_merchant_key` VALUES ('{{key_id}}','{{merchant_no}}','{{app_key}}','{{jwt_secret}}');\n-- Dump completed on {{instance.now}}\n"
+    },
+    {
+      "path": "/api/v2/trade/query",
+      "method": "GET",
+      "kind": "error",
+      "status": 404,
+      "title": "404",
+      "content_type": "application/json; charset=utf-8",
+      "honeytokens": [],
+      "note": "404 诱饵: 引导到 v1 与内部接口",
+      "body": "{\n  \"timestamp\": \"{{instance.now}}\",\n  \"status\": 404,\n  \"error\": \"Not Found\",\n  \"message\": \"No matching route for GET /api/v2/trade/query\",\n  \"gateway_routes\": {\"trade\": \"/api/v1/trade/**\", \"keys\": \"/api/v1/keys/**\", \"recon\": \"/api/v1/recon/**\"},\n  \"hint\": \"v2 交易接口未开放, 请使用 /api/v1/trade/query?tradeNo= ; 密钥类接口见 /api/v1/keys/list\",\n  \"trace\": \"{{instance.canary}}\"\n}"
+    }
+  ],
+  "vulnerabilities": [
+    {
+      "path": "/api/v1/trade/query",
+      "method": "GET",
+      "type": "sqli",
+      "param": "tradeNo",
+      "severity": "critical",
+      "note": "假 SQL 注入: 只回伪造的 JDBC 与框架报错",
+      "error_body": "{\n  \"timestamp\": \"{{instance.now}}\",\n  \"status\": 500,\n  \"error\": \"Internal Server Error\",\n  \"message\": \"### Error querying database. Cause: java.sql.SQLSyntaxErrorException: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '{{payload}}' at line 1\",\n  \"query\": \"SELECT trade_no,merchant_no,amount,status FROM pay_trade WHERE trade_no = '{{param}}' LIMIT 20\",\n  \"mapper\": \"com.example.pay.mapper.TradeMapper.selectByTradeNo\",\n  \"driver\": \"com.mysql.cj.jdbc.Driver (MySQL 8.0.34, {{db_host}}:3306)\",\n  \"hint\": \"可尝试报错注入; 对账明细接口同样未做参数绑定\",\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/api/v1/keys/download",
+      "method": "GET",
+      "type": "unauthorized",
+      "param": "keyId",
+      "severity": "critical",
+      "note": "假未鉴权密钥导出: 返回伪造私钥, 制造密钥窃取证据",
+      "response_body": "{\n  \"code\": \"0000\",\n  \"msg\": \"密钥已导出(明文)\",\n  \"keyId\": \"{{param}}\",\n  \"keyFile\": \"{{server.key_store}}/merchant_private.key\",\n  \"privateKey\": \"-----BEGIN RSA PRIVATE KEY-----\\\\nMIIEowIBAAKCAQEA{{hex32}}{{hex32}}\\\\n-----END RSA PRIVATE KEY-----\",\n  \"keyStorePassword\": \"{{jwt_secret}}\",\n  \"warning\": \"接口未校验会话与商户归属\",\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/api/v1/recon/detail",
+      "method": "GET",
+      "type": "idor",
+      "param": "merchantNo",
+      "severity": "high",
+      "note": "假越权: 可拉取任意商户对账明细",
+      "response_body": "{\n  \"code\": \"0000\",\n  \"warning\": \"未校验商户归属, 任意 merchantNo 可读\",\n  \"merchantNo\": \"{{param}}\",\n  \"rows\": [{\"tradeNo\": \"T{{rand.date}}{{rand.hex}}\", \"amount\": \"{{rand.int}}.00\", \"status\": \"SUCCESS\"}],\n  \"settleAccount\": \"{{clearing_account}}\",\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/actuator/gateway/refresh",
+      "method": "POST",
+      "type": "rce",
+      "param": "",
+      "severity": "critical",
+      "note": "假 Spring Cloud Gateway Actuator 探测点: 不执行任何代码, 只回伪造响应",
+      "response_body": "{\n  \"timestamp\": \"{{instance.now}}\",\n  \"status\": 200,\n  \"message\": \"Gateway routes refreshed\",\n  \"detail\": \"POST /actuator/gateway/routes/{id} 可新增路由 (CVE-2022-22947 类风险), 当前实现对 SpEL 做了过滤但仍允许 filter 参数\",\n  \"added_route\": {\"route_id\": \"{{hex16}}\", \"predicate\": \"Path=/{{hex16}}/**\", \"filters\": [\"AddResponseHeader=Result, {{rand.hex}}\"]},\n  \"refresh\": \"已刷新 {{rand.int}} 条路由\",\n  \"warning\": \"本系统已打补丁: 仅记录请求, 不执行任何表达式\",\n  \"trace\": \"{{instance.canary}}\"\n}"
+    },
+    {
+      "path": "/api/v1/keys/upload",
+      "method": "POST",
+      "type": "upload",
+      "param": "file",
+      "severity": "high",
+      "note": "假任意文件上传: 声称可覆盖密钥目录文件",
+      "response_body": "{\n  \"code\": \"0000\",\n  \"msg\": \"上传成功\",\n  \"fileName\": \"{{rand.hex}}.p12\",\n  \"savedPath\": \"{{server.key_store}}/{{rand.hex}}.p12\",\n  \"overwrite\": \"目标目录与 merchant_private.key 同级, 存在覆盖风险\",\n  \"trace\": \"{{instance.canary}}\"\n}"
+    }
+  ],
+  "payload_profile": "aggressive",
+  "tarpit_profile": "heavy",
+  "detection": {
+    "path_playbook": ["/", "/actuator", "/actuator/env", "/actuator/gateway/routes", "/actuator/health", "/config/application-prod.yml", "/config/keys/merchant_private.key", "/nacos/v1/console/namespaces", "/login", "/admin", "/admin/dashboard", "/api/docs", "/api/v1/trade/query", "/api/v1/keys/list", "/api/v1/keys/download", "/api/v1/recon/summary", "/api/v1/merchant/list", "/backup/pay_gateway_20240912.sql", "/.git/config"],
+    "noise_paths": ["/favicon.ico", "/static/css/gw.css", "/static/js/gw.js", "/robots.txt", "/actuator/health"]
+  }
+}

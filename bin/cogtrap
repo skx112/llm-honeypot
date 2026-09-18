@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# CogTrap 启动器 —— 从仓库任意位置运行都能找到模块
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec python3 "$ROOT/honeypot/cli.py" "$@"

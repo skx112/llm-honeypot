@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "id": "agent-hunter",
+  "name": "智能体猎捕 · 高置信度确证",
+  "description": "专门针对大模型驱动的渗透智能体。反制方式白名单只保留确证与情报类, 目标是拿到攻击方的系统提示词、工具链与指令服从证据。",
+  "author": "cogtrap",
+  "tags": ["llm-agent", "intelligence", "high-value"],
+  "intended_use": "当已知攻击方在使用大模型智能体时使用。例如演练中观察到明显的智能体行为节律, 或需要专项采集攻击方 TTP 用于情报共享。",
+  "template": "ops-platform",
+  "overrides": {
+    "branding": {
+      "site_name": "示例科技运维管理平台"
+    }
+  },
+  "countermeasures": {
+    "enabled": true,
+    "min_score": 45,
+    "max_tier": 3,
+    "include": [
+      "integrity_beacon",
+      "trace_header_compliance",
+      "multistep_state_check",
+      "scope_verification_prompt",
+      "agent_compatibility_check",
+      "pagination_maze",
+      "context_flood_hint",
+      "fake_topology",
+      "crown_jewel_decoy",
+      "near_miss_retry",
+      "asset_registry_notice",
+      "third_party_escalation"
+    ],
+    "exclude": [
+      "defender_notice"
+    ]
+  },
+  "tarpit": {
+    "profile": "heavy",
+    "base_delay": 0.5,
+    "growth": 1.4,
+    "max_delay": 10.0,
+    "drip_chunks": 7,
+    "infinite_stream_max": 240.0,
+    "lockdown_keepalive": 420.0
+  },
+  "detection": {
+    "thresholds": {
+      "serve_watch": 15,
+      "tarpit": 35,
+      "deceive_inject": 55,
+      "lockdown": 75
+    },
+    "weight_overrides": {
+      "ua_ai_framework": 45,
+      "ua_agent_framework": 40,
+      "cadence_agent_rhythm": 35,
+      "toolcall_payload": 45,
+      "canary_echo": 50,
+      "injection_compliance": 55
+    },
+    "path_playbook": []
+  },
+  "blocking": {
+    "mode": "absorb",
+    "auto_threshold": 82,
+    "ttl_seconds": 3600,
+    "armed": false,
+    "apply": false
+  },
+  "notes": "exclude 里剔除了 defender_notice(防守方通告): 它是露骨载荷, 会让智能体立即标记目标为蜜罐并切换。猎捕场景要的是**让它留下来继续交互**, 所以只投隐蔽的诱导类与情报类载荷。infinite_stream_max 拉到 240 秒是为了最大化上下文挤占 —— 每多喂一轮垃圾, 它的单步 token 成本就更高一层。"
+}

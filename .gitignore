@@ -1,0 +1,53 @@
+# ---- 运行时产物(蜜罐的遥测数据与报告, 绝不能进版本库) ----
+var/
+logs/
+out/
+*.db
+*.db-wal
+*.db-shm
+*.log
+
+# 演练期间产生的上报材料与规则, 含真实 IP 与取证内容
+reports/
+rules/
+*.nft
+
+# 自定义载荷: 使用者会放自己环境的诱导内容, 不入库
+payloads/custom/*
+!payloads/custom/.gitkeep
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ---- 证书与私钥(绝不能提交) ----
+*.pem
+*.key
+*.crt
+!deploy/*.example
+tls/
+certs/
+
+# ---- 编辑器与系统 ----
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# ---- 本地配置覆盖 ----
+config.local.json
+.env
+.env.local

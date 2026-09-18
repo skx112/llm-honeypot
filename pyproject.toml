@@ -1,0 +1,127 @@
+# CogTrap — project metadata and tool configuration.
+#
+# THIS FILE DOES NOT MAKE THE PROJECT INSTALLABLE, AND THAT IS INTENTIONAL.
+#
+# CogTrap is a zero-dependency, standard-library-only tool that runs from a source
+# checkout. There is deliberately no [build-system] table and no packaging metadata,
+# because there is nothing to build and nothing to install: you clone the repository
+# and run `bin/cogtrap`. Declaring a build backend here would let `pip install .`
+# succeed while installing no code, which is a worse outcome than not being
+# installable at all.
+#
+# This file exists so that tooling can discover the project's identity and
+# constraints: Python version floor, licence, classifiers, keywords, lint settings,
+# and the test paths.
+#
+# The `requires-python` floor is not aspirational. The target deployment is
+# CentOS 8 with Python 3.6, where PyPI is not reachable.
+
+[project]
+name = "llm-honeypot"
+version = "0.1.0"
+description = "Multi-layer deception and countermeasure system for LLM-driven automated penetration testing"
+readme = "README.md"
+requires-python = ">=3.6"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "CogTrap contributors" },
+]
+keywords = [
+    "honeypot",
+    "deception",
+    "deception-technology",
+    "llm",
+    "llm-agent",
+    "ai-agent",
+    "prompt-injection",
+    "canary-token",
+    "honeytoken",
+    "tarpit",
+    "threat-intelligence",
+    "attribution",
+    "blue-team",
+    "incident-response",
+    "defensive-security",
+    "security",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: Security",
+    "Topic :: System :: Networking :: Monitoring",
+]
+
+# ---------------------------------------------------------------------------
+# ZERO RUNTIME DEPENDENCIES — A DESIGN CONSTRAINT, NOT AN OMISSION.
+#
+# Two reasons, both load-bearing:
+#
+#   1. Environment reality. The target deployment is CentOS 8 with Python 3.6,
+#      where PyPI is not reachable. A dependency could not be installed even if
+#      we wanted one.
+#
+#   2. Security principle. CogTrap runs on a host whose entire purpose is to lure
+#      attackers. Every third-party package on that host is another supply-chain
+#      path to code execution inside your decoy. Installing a dependency tree on a
+#      honeypot voluntarily widens your own attack surface, which contradicts the
+#      point of the system.
+#
+# A pull request that adds a runtime dependency will be rejected.
+# See CONTRIBUTING.md#zero-dependency-policy.
+# ---------------------------------------------------------------------------
+dependencies = []
+
+[project.optional-dependencies]
+# Development tooling only. Never imported by anything under honeypot/.
+# Install in a throwaway environment; nothing here is needed to run CogTrap.
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.2.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/skx112/llm-honeypot"
+Repository = "https://github.com/skx112/llm-honeypot"
+Documentation = "https://github.com/skx112/llm-honeypot/blob/main/docs/PRODUCT.md"
+Design = "https://github.com/skx112/llm-honeypot/blob/main/docs/DESIGN.zh-CN.md"
+Changelog = "https://github.com/skx112/llm-honeypot/blob/main/CHANGELOG.md"
+Issues = "https://github.com/skx112/llm-honeypot/issues"
+Security = "https://github.com/skx112/llm-honeypot/blob/main/SECURITY.md"
+
+[tool.ruff]
+# Target the oldest supported interpreter, not the interpreter running the lint.
+target-version = "py36"
+line-length = 100
+exclude = [
+    ".git",
+    "__pycache__",
+    "var",
+    "logs",
+    "out",
+]
+
+[tool.ruff.lint]
+# Keep the rule set close to the existing house style: the codebase predates modern
+# lint conventions and uses %-formatting throughout, has deliberate broad except
+# clauses in the fault-tolerance paths, and keeps short loop variable names.
+select = ["E", "F", "W"]
+ignore = [
+    "E501",  # line length is a review judgement here, not a hard gate
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The honeypot modules are top-level units (`import inject`, not
+# `from honeypot import inject`), so tests need honeypot/ on the import path.
+# Requires pytest >= 7; see the dev extra above.
+pythonpath = ["honeypot"]

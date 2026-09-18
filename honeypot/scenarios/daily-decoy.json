@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "id": "daily-decoy",
+  "name": "日常长期诱饵 · 低调观测",
+  "description": "长期在线的基础诱饵。只投隐蔽载荷, 拖滞很轻, 不做任何防火墙动作。目标是持续采集攻击样本而不暴露防御存在。",
+  "author": "cogtrap",
+  "tags": ["steady-state", "stealth", "low-touch"],
+  "intended_use": "非演练期的常态化部署。适合长期挂在公网或边缘网段, 用最低的资源占用与干扰度积累攻击样本与情报。",
+  "template": "corp-oa",
+  "overrides": {
+    "branding": {
+      "site_name": "示例科技协同办公系统"
+    }
+  },
+  "countermeasures": {
+    "enabled": true,
+    "min_score": 60,
+    "max_tier": 1,
+    "include": [],
+    "exclude": [
+      "defender_notice",
+      "scope_revocation",
+      "asset_registry_notice",
+      "third_party_escalation",
+      "policy_conflict_probe"
+    ]
+  },
+  "tarpit": {
+    "profile": "light",
+    "base_delay": 0.25,
+    "growth": 1.15,
+    "max_delay": 2.5,
+    "drip_chunks": 3
+  },
+  "detection": {
+    "thresholds": {
+      "serve_watch": 30,
+      "tarpit": 55,
+      "deceive_inject": 75,
+      "lockdown": 90
+    },
+    "weight_overrides": {},
+    "path_playbook": []
+  },
+  "blocking": {
+    "mode": "absorb",
+    "auto_threshold": 95,
+    "ttl_seconds": 1800,
+    "armed": false,
+    "apply": false
+  },
+  "notes": "max_tier=1 是关键: 只投隐蔽载荷(假拓扑、假信任边界、时间压力), 不投任何会让攻击者意识到\"这是蜜罐\"的内容。阈值定得很高是为了避免误伤 —— 长期诱饵必然会遇到合法爬虫、误访者、内部扫描, 误判的代价比漏判高。blocking.auto_threshold=95 实际上等于不自动处置。"
+}

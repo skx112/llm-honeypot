@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "id": "hw-drill-dmz",
+  "name": "护网演练 · DMZ 诱饵",
+  "description": "演练期间部署在 DMZ 的主诱饵。反制拉满, 目标是最大化攻击方的时间与 token 成本, 并留下可直接上报的确证证据。",
+  "author": "cogtrap",
+  "tags": ["drill", "dmz", "aggressive"],
+  "intended_use": "护网/攻防演练期间, 部署在 DMZ 或公网可达的诱饵段。需要有独立网段与出站 DROP 配合。",
+  "template": "gov-portal",
+  "overrides": {
+    "branding": {
+      "site_name": "示例省政务服务平台",
+      "footer": "示例省大数据管理局 技术支持"
+    }
+  },
+  "countermeasures": {
+    "enabled": true,
+    "min_score": 50,
+    "max_tier": 3,
+    "include": [],
+    "exclude": []
+  },
+  "tarpit": {
+    "profile": "heavy",
+    "base_delay": 0.6,
+    "growth": 1.45,
+    "max_delay": 12.0,
+    "drip_chunks": 8,
+    "infinite_stream_max": 180.0,
+    "lockdown_keepalive": 300.0
+  },
+  "detection": {
+    "thresholds": {
+      "serve_watch": 18,
+      "tarpit": 40,
+      "deceive_inject": 60,
+      "lockdown": 78
+    },
+    "weight_overrides": {
+      "cadence_agent_rhythm": 35,
+      "canary_echo": 50
+    },
+    "path_playbook": []
+  },
+  "blocking": {
+    "mode": "absorb",
+    "auto_threshold": 78,
+    "ttl_seconds": 7200,
+    "armed": false,
+    "apply": false
+  },
+  "notes": "阈值刻意压低(lockdown=78), 演练期间宁可多处置也不要漏。armed/apply 默认 false: 规则只写文件供人工审核, 需要指挥确认后再开启真实防火墙变更。吸收模式优先于阻断 —— 让攻击者以为还能打, 实际每一次尝试都进蜜罐。"
+}

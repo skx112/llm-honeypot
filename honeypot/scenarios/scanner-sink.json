@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "id": "scanner-sink",
+  "name": "扫描器下沉池 · 资源消耗",
+  "description": "把大规模自动化扫描流量全部吸进来并拖住。反制强度中等, 但拖滞拉满, 目标是让对方的扫描预算烧得最快。",
+  "author": "cogtrap",
+  "tags": ["sink", "tarpit", "volume"],
+  "intended_use": "面对大规模批量扫描(僵尸网络、批量探测、智能体集群)时使用。典型情况是演练初期遭遇全端口扫段, 需要把噪声流量从真实资产上吸走并消耗对方。",
+  "template": "iot-gateway",
+  "overrides": {
+    "branding": {
+      "site_name": "示例工业物联网网关"
+    }
+  },
+  "countermeasures": {
+    "enabled": true,
+    "min_score": 35,
+    "max_tier": 2,
+    "include": [
+      "pagination_maze",
+      "context_flood_hint",
+      "near_miss_retry",
+      "fake_topology",
+      "trust_boundary_hint",
+      "trace_header_compliance",
+      "internal_contradiction"
+    ],
+    "exclude": []
+  },
+  "tarpit": {
+    "profile": "heavy",
+    "base_delay": 1.0,
+    "growth": 1.6,
+    "max_delay": 20.0,
+    "drip_chunks": 10,
+    "infinite_stream_max": 300.0,
+    "lockdown_keepalive": 600.0
+  },
+  "detection": {
+    "thresholds": {
+      "serve_watch": 25,
+      "tarpit": 32,
+      "deceive_inject": 55,
+      "lockdown": 72
+    },
+    "weight_overrides": {
+      "cadence_machine_uniform": 25,
+      "ua_scanner_tool": 20,
+      "proxy_chain": 15,
+      "proxy_chain_deep": 20
+    },
+    "path_playbook": []
+  },
+  "blocking": {
+    "mode": "absorb",
+    "auto_threshold": 72,
+    "ttl_seconds": 1800,
+    "armed": false,
+    "apply": false
+  },
+  "notes": "阈值区间的设计是本场景的关键: tarpit=32 与 serve_watch=25 只差 7 分, 意味着几乎所有被判定为自动化的流量都会立刻进入拖滞 —— 不需要等到确认是智能体。因为本场景的目的不是甄别, 而是**消耗**。infinite_stream_max=300 与 lockdown_keepalive=600 都远超默认值, 会让单个连接被占用很久; 因此部署时必须同时确认 limits.max_connections 与全局拖滞预算足够, 否则可能把自己的资源先耗光。"
+}
