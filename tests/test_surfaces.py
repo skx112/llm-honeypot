@@ -329,3 +329,65 @@ def test_non_interactive_path_no_signal():
     profile.record(req, 1.0)
     verdict = fingerprint.evaluate(profile, req, None)
     assert not verdict.has("dom_decoy_interaction")
+
+
+# --------------------------------------------------------------------------
+# 交互式漏洞引擎
+# --------------------------------------------------------------------------
+
+def test_sqli_full_chain():
+    """SQL 注入利用链 8 阶段全部正确识别并返回对应内容。"""
+    import vuln_engine
+    stages = [
+        ("?id=1'", "probe"),
+        ("?id=1' UNION SELECT null,null,null,null,null--", "union_probe"),
+        ("?id=1' UNION SELECT table_name FROM information_schema.tables--", "extract_tables"),
+        ("?id=1' UNION SELECT column_name FROM information_schema.columns--", "extract_columns"),
+        ("?id=1' UNION SELECT username,password FROM users--", "extract_credentials"),
+        ("?id=1' UNION SELECT LOAD_FILE('/etc/passwd')--", "read_file"),
+        ("?id=1' INTO OUTFILE '/var/www/shell.php'--", "write_file"),
+        ("?id=1' AND SLEEP(5)--", "blind"),
+    ]
+    for query, expect in stages:
+        actual, _ = vuln_engine.analyze_sqli_payload(query)
+        assert actual == expect, "%r 应为 %s, 实际 %s" % (query, expect, actual)
+        result = vuln_engine.sqli_response(query, None, 85)
+        assert result["status"] in (200, 500)
+
+
+def test_sqli_credentials_have_watermark():
+    """提取的假凭据应包含会话令牌(溯源用)。"""
+    import vuln_engine
+    ctx = inject.PayloadContext("hpx-sql01", "t", "i")
+    result = vuln_engine.sqli_response(
+        "?id=1' UNION SELECT password FROM users--", ctx, 85)
+    assert "hpx-sql01" in result["body"] or "sql01" in result["body"], \
+        "凭据应含水印"
+
+
+def test_actuator_env_has_fake_credentials():
+    import vuln_engine
+    ctx = inject.PayloadContext("hpx-act1", "t", "i")
+    result = vuln_engine.actuator_response("/actuator/env", ctx, 85)
+    data = json.loads(result["body"])
+    props = data["propertySources"][0]["properties"]
+    assert "spring.datasource.password" in props
+    assert "hpx-act1" in props["spring.redis.password"]
+
+
+def test_idor_returns_fake_pii_with_token():
+    import vuln_engine
+    ctx = inject.PayloadContext("hpx-ido1", "t", "i")
+    result = vuln_engine.idor_response("789", ctx, 85)
+    data = json.loads(result["body"])
+    assert data["api_token"] == "hpx-ido1"
+    assert "id_card" in data and "bank_card" in data
+
+
+def test_lfi_config_has_credentials():
+    import vuln_engine
+    ctx = inject.PayloadContext("hpx-lfi1", "t", "i")
+    result = vuln_engine.lfi_response("../../.env", ctx, 85)
+    assert "DB_PASSWORD" in result["body"]
+    assert "AWS_ACCESS_KEY_ID" in result["body"]
+    assert "hpx-lfi1" in result["body"]

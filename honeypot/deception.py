@@ -20,6 +20,7 @@ import time
 import inject
 from inject import MARKER
 import dom_decoys
+import vuln_engine
 
 # 保留域名(RFC 2606)与完全合成的姓名, 避免与真实数据混淆
 _FAKE_DOMAIN = "example.com"
@@ -166,6 +167,79 @@ class Deception(object):
         # 真实踩过的坑: 加载模板后 /llms.txt 变成 404, 最有效的投递面直接失效。
         return None
 
+    def _try_vuln_engine(self, req, session):
+        """交互式漏洞引擎: 根据请求路径和参数匹配漏洞利用链。
+
+        优先于模板路由 —— 漏洞的"深度交互"比静态页面更有价值。
+        每条利用链的末端都携带反制载荷与蜜标。
+        """
+        path = (req.path or "").rstrip("/").lower() or "/"
+        query = req.query or ""
+        ctx = session.ctx
+        score = session.score
+
+        # --- SQLi: 路径含 query 参数且有注入载荷 ---
+        if query and any(marker in query.lower() for marker in
+                         ("'", "union", "select", "or 1=1", "sleep(", "load_file",
+                          "into outfile", "information_schema", "table_name")):
+            result = vuln_engine.sqli_response(query, ctx, score)
+            return self._vuln_reply(result, req, session, "sqli")
+
+        # --- Actuator ---
+        if path.startswith("/actuator"):
+            result = vuln_engine.actuator_response(path, ctx, score)
+            return self._vuln_reply(result, req, session, "actuator")
+
+        # --- Jenkins ---
+        if "/jenkins" in path or path == "/script":
+            result = vuln_engine.jenkins_response(path, ctx, score)
+            return self._vuln_reply(result, req, session, "jenkins")
+
+        # --- LFI ---
+        if any(marker in (req.query or "").lower() for marker in
+               ("../../", "..\\", "/etc/", ".env", "id_rsa", "passwd")):
+            file_param = req.query.split("=")[-1] if "=" in (req.query or "") else path
+            result = vuln_engine.lfi_response(file_param, ctx, score)
+            return self._vuln_reply(result, req, session, "lfi")
+
+        # --- 上传 ---
+        if req.method == "POST" and any(marker in path for marker in
+                                        ("/upload", "/api/v1/upload", "/firmware/upload")):
+            result = vuln_engine.upload_response(
+                req.header("x-file-name") or "upload.bin", ctx, score)
+            return self._vuln_reply(result, req, session, "upload")
+
+        # --- 已上传文件访问 ---
+        if "/uploads/" in path and "." in path.split("/")[-1]:
+            result = vuln_engine.uploaded_file_response(path, ctx, score)
+            return self._vuln_reply(result, req, session, "webshell")
+
+        # --- IDOR: 数字用户 ID 路径 ---
+        import re as _re
+        idor_match = _re.search(r"/api/v1/(?:user|student|patient|employee)s?/(\d+)", path)
+        if idor_match:
+            result = vuln_engine.idor_response(idor_match.group(1), ctx, score)
+            return self._vuln_reply(result, req, session, "idor")
+
+        return None
+
+    def _vuln_reply(self, result, req, session, vuln_type):
+        """把漏洞引擎的结果转换为 Reply。"""
+        body = result.get("body", "")
+        status = result.get("status", 200)
+        ctype = result.get("content_type", "text/plain; charset=utf-8")
+        if isinstance(body, str) and body.lstrip().startswith("{"):
+            ctype = "application/json"
+        honeytokens = ["vuln_%s" % vuln_type] if result.get("honeytoken") else []
+        delay = result.get("delay", 0)
+
+        reply = Reply(status, body, ctype, kind="vuln_%s" % vuln_type,
+                      honeytokens=honeytokens, tarpit_weight=2 if delay else 1,
+                      note=result.get("note", vuln_type))
+        if delay:
+            reply.tarpit_weight = 4  # 盲注延时
+        return reply
+
     # 基础设施投递面: 模板不需要重复声明, 也不能遮蔽它们
     _INFRASTRUCTURE_ROUTES = {
         "/llms.txt": "_llms",
@@ -253,6 +327,11 @@ class Deception(object):
         # MCP 清单: LLM 工具生态的自动发现面 —— 智能体会主动拉取并消化
         if path in ("/mcp", "/mcp.json", "/.well-known/mcp.json"):
             return self._mcp_manifest(req, session)
+
+        # 交互式漏洞引擎: 处理 SQLi/LFI/RCE/Actuator/上传/IDOR 的利用链
+        vuln_reply = self._try_vuln_engine(req, session)
+        if vuln_reply is not None:
+            return self._finalize(vuln_reply, req, session)
 
         # 基础设施投递面: 永远由内置实现提供, 模板只可补充不可遮蔽。
         # 这四个路径是反制载荷的主要载体, 对 LLM 智能体的命中率最高,
@@ -382,9 +461,12 @@ class Deception(object):
             except Exception:
                 pass
 
-        # HTML/文本响应追加注释载荷
-        if score >= 40 and ("html" in ctype or ctype.startswith("text/plain")
-                            or "json" in ctype):
+        # HTML/文本响应追加注释载荷(vuln_engine 的 JSON 响应除外 —— 它的
+        # 漏洞利用链响应本身已是精心构造的数据, 追加文本会破坏 JSON 格式)
+        is_vuln_json = "json" in ctype and getattr(reply, "kind", "").startswith("vuln_")
+        if score >= 40 and not is_vuln_json and (
+                "html" in ctype or ctype.startswith("text/plain")
+                or "json" in ctype):
             if "json" in ctype:
                 try:
                     payload = json.loads(reply.body.decode("utf-8", "replace"))

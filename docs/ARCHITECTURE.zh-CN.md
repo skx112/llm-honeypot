@@ -349,6 +349,12 @@ LLM 智能体每次工具调用新建连接是常态，这个坑实测踩过。
 - **依赖**：`inject`(载荷渲染)
 - **刻意不做**：不做协议级指令执行(只影响对方读到的文本)
 
+#### `vuln_engine.py`
+- **职责**：交互式漏洞利用链 —— SQL 注入 8 阶段递进(probe→UNION→表名→列名→凭据→文件读写→盲注)、LFI 路径遍历、Actuator 未授权(含假 env/heapdump)、Jenkins Script Console、文件上传(返回蜜标路径)、IDOR 越权(假 PII+水印)。每个阶段回"看起来可利用"的假数据, 引导智能体走完整条链。
+- **公开接口**：`sqli_response(query, ctx, score)`、`lfi_response(path, ctx, score)`、`actuator_response(path, ctx, score)`、`jenkins_response(path, ctx, score)`、`upload_response(filename, ctx, score)`、`idor_response(user_id, ctx, score)`
+- **依赖**：无(纯函数, ctx 参数化)
+- **刻意不做**：不做真实可利用的漏洞; 所有"成功"均为假数据+蜜标
+
 #### `alerts.py`
 - **职责**：统一告警出口 —— 本地文件(兼容旧格式, dashboard 依赖) + 可选 webhook 异步外发；后台线程 + 有界队列，告警故障绝不影响蜜罐主路径。
 - **公开接口**：`Alerter(config)`（`.emit(line, severity)` / `.close()` / `.stats()`）、`get_alerter(config)`（进程单例）、`reset_for_tests()`
@@ -419,7 +425,7 @@ LLM 智能体每次工具调用新建连接是常态，这个坑实测踩过。
 |---|---|---|
 | **L0 基础** | `config` `http_parse` `store` `fingerprint` `countermeasures` `scenarios` `block` `tarpit` `report` `dashboard` `alerts` `hub` `dom_decoys` | **无内部模块** |
 | **L1 领域** | `templating` `inject` | L0 |
-| **L2 协议与适配** | `respond` `deception` `ssh_decoy` `server` `proto_decoys` `proto_server` `proto_counter` | L0、L1、同层 |
+| **L2 协议与适配** | `respond` `deception` `ssh_decoy` `server` `proto_decoys` `proto_server` `proto_counter` `vuln_engine` | L0、L1、同层 |
 | **L3 编排** | `cli` | 全部 |
 
 ### 4.2 四条规则
