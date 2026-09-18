@@ -1,0 +1,29 @@
+# CogTrap 容器镜像
+#
+# 构建:
+#   podman build -t cogtrap:latest -f deploy/Containerfile .
+#
+# 国内主机建议走镜像加速(腾讯云内网示例):
+#   podman build --build-arg BASE=mirror.ccs.tencentyun.com/library/python:3.9-slim \
+#       -t cogtrap:latest -f deploy/Containerfile .
+#
+# 运行: 见 deploy/run-stack.sh(已内置全部硬化参数)。
+# 镜像内零第三方依赖 —— 与项目运行时约束一致, 供应链面即基础镜像本身。
+#
+# 基础镜像选 3.9-slim: 代码兼容 3.6+(CI 三版本矩阵验证), 3.9 镜像仍在维护。
+ARG BASE=python:3.9-slim
+FROM ${BASE}
+
+# 非特权运行用户(UID/GID 1000; 与通用容器惯例一致, 宿主侧按需映射)
+RUN groupadd -g 1000 cogtrap && useradd -u 1000 -g cogtrap -m -s /usr/sbin/nologin cogtrap
+
+COPY honeypot/ /opt/cogtrap/honeypot/
+COPY bin/      /opt/cogtrap/bin/
+COPY tools/    /opt/cogtrap/tools/
+COPY config.json /opt/cogtrap/config.json
+
+WORKDIR /opt/cogtrap
+USER cogtrap
+
+# 实例目录(config.json/instance.json/var/logs)以卷挂载进 /app/instance
+ENTRYPOINT ["python3", "/opt/cogtrap/honeypot/cli.py"]

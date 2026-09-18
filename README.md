@@ -596,6 +596,17 @@ covering loopback and all RFC1918 ranges.
 
 ---
 
+### Container deployment (recommended)
+
+```bash
+podman build -t cogtrap:latest -f deploy/Containerfile .   # CN hosts: --build-arg BASE=mirror.ccs.tencentyun.com/library/python:3.9-slim
+./deploy/run-stack.sh start /path/to/instances            # receiver + hub + node-a + node-b
+```
+
+Every container runs with a read-only rootfs, zero capabilities and seccomp;
+pair it with the UID egress jail (see `deploy/`) so a compromised honeypot
+cannot dial out. Bare-metal systemd units are still provided for minimal hosts.
+
 ### One deployment gotcha: CJK fonts
 
 The dashboard is Chinese-first. On a minimal Linux server, viewing it from a

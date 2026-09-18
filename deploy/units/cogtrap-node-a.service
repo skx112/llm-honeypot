@@ -1,0 +1,34 @@
+# 模板单元: 由本机实弹部署验证后收编。
+# 适配你的环境: 替换 /data/cogtrap 路径与镜像名;
+# rootless 三要点(实测): --user 0:0(keep-id 会映射错 uid)、显式 -c 配置、
+# cgroup 限制放 systemd 层(rootless 无委派时容器内设不了)。
+[Unit]
+Description=CogTrap node-a (rootless container)
+Requires=cogtrap-receiver.service
+After=network-online.target cogtrap-receiver.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cogtrap
+Group=cogtrap
+Environment=XDG_RUNTIME_DIR=/run/user/994
+Environment=HOME=/home/cogtrap
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ExecStart=/usr/bin/podman run --rm --name cogtrap-node-a \
+  --read-only --tmpfs /tmp:rw,size=16m --cap-drop=ALL \
+  --security-opt no-new-privileges \
+  --user 0:0 \
+  --network host \
+  -v /data/cogtrap/node-a:/app/instance:Z \
+  -w /opt/cogtrap localhost/cogtrap:latest --config /app/instance/config.json serve --instance /app/instance/instance.json --scenario /app/instance/scenario.json
+ExecStop=/bin/sh -c '/usr/bin/podman stop -t 5 cogtrap-node-a 2>/dev/null || true'
+MemoryMax=768M
+TasksMax=320
+KillMode=mixed
+TimeoutStopSec=25
+
+[Install]
+WantedBy=multi-user.target

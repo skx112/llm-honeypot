@@ -12,6 +12,22 @@ are versioned independently (`schema: 1`) and validated at load time.
 ## [Unreleased]
 
 ### Added
+- Container deployment: `deploy/Containerfile` (zero-dependency image on
+  python:3.9-slim, non-root user) and `deploy/run-stack.sh` — one command brings
+  up the full hardened stack on podman or docker. Hardening per container:
+  read-only rootfs, `--cap-drop=ALL` (all ports are unprivileged), no-new-privileges,
+  seccomp, resource ceilings (systemd-layer MemoryMax/TasksMax for rootless runs —
+  in-container cgroup limits fail without delegation, found the hard way).
+  Rootless notes from live migration: use `--user 0:0` (container-root maps to the
+  unprivileged host user; `--userns=keep-id` remaps to the image's default uid and
+  breaks volume ownership), and pass an explicit `-c config.json` so nothing tries
+  to write under the read-only image root.
+- `tools/soc_receiver.py`: minimal SOC webhook receiver promoted into the repo
+  (was a deployment-local script).
+- Kernel-level egress jail (deployment): nftables rule-set pinning the honeypot
+  service UID to loopback-only new connections — a compromised honeypot cannot
+  pivot out, while hub/webhook over loopback and root operations stay unaffected.
+  Persisted via /etc/nftables/cogtrap-jail.nft.
 - Model-differentiated countermeasures: verdicts now expose a normalised
   `model_family` (aligned API families vs bare local runtimes such as
   ollama/vllm/llama.cpp, detected from UA, headers and payload mentions —

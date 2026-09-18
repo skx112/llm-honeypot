@@ -520,6 +520,16 @@ python3 tools/sim_llm_agent.py --target http://127.0.0.1:8080 --fast
 
 ---
 
+## 容器部署(推荐)
+
+```bash
+podman build -t cogtrap:latest -f deploy/Containerfile .   # 国内: --build-arg BASE=mirror.ccs.tencentyun.com/library/python:3.9-slim
+./deploy/run-stack.sh start /实例根目录                     # 接收端 + hub + 双节点
+```
+
+每个容器: 只读根文件系统 + 零 capabilities + seccomp; 再配上按用户的出站
+封锁(内核层), 被攻破的蜜罐也出不了网。最小化主机仍可用裸机 systemd 单元。
+
 ## 部署与隔离要求
 
 蜜罐的宿命是被攻破，设计必须假设这一点。

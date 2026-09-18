@@ -1,0 +1,30 @@
+[Unit]
+Description=CogTrap hub (rootless container)
+After=network-online.target cogtrap-receiver.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cogtrap
+Group=cogtrap
+Environment=XDG_RUNTIME_DIR=/run/user/994
+Environment=HOME=/home/cogtrap
+EnvironmentFile=/data/cogtrap/hub/env
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ExecStart=/usr/bin/podman run --rm --name cogtrap-hub \
+  --read-only --tmpfs /tmp:rw,size=16m --cap-drop=ALL \
+  --security-opt no-new-privileges \
+  --user 0:0 \
+  --network host \
+  -v /data/cogtrap/hub:/app/instance:Z \
+  -w /opt/cogtrap localhost/cogtrap:latest -c /app/instance/config.json hub --db /app/instance/hub.db --host 127.0.0.1 --port 9443 --token ${HUB_TOKEN}
+ExecStop=/bin/sh -c '/usr/bin/podman stop -t 5 cogtrap-hub 2>/dev/null || true'
+MemoryMax=768M
+TasksMax=320
+KillMode=mixed
+TimeoutStopSec=25
+
+[Install]
+WantedBy=multi-user.target
