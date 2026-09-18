@@ -289,6 +289,74 @@ def test_cross_index_detects_multi_ip_campaign():
 
 
 # --------------------------------------------------------------------------
+# 部署实测回归(2026-09-18 双节点弹幕暴露的误判)
+# --------------------------------------------------------------------------
+
+def test_scanner_with_honeytokens_not_llm_agent():
+    """字典扫描器命中 /.env 等蜜标路径 → 不得判为 llm_agent。
+
+    部署实测: nuclei 的字典包含 /.env//backup.sql 等, 蜜标读取曾以
+    decisive 类别把 55 分的扫描器推成 llm_agent/置信 0.97。
+    蜜标证明窃取意图, 不证明是 LLM。
+    """
+    profile = scanner_profile("nuc")
+    profile.note_honeytoken("env_credentials")
+    profile.note_honeytoken("backup_archive")
+    verdict = verdict_for(profile)
+    assert verdict.label != "llm_agent", \
+        "读取蜜标的扫描器被误判: %s (%d)" % (verdict.label, verdict.score)
+    assert "honeytoken_read" not in verdict.decisive, \
+        "蜜标读取不应再是 decisive 证据"
+
+
+def test_tarpit_pollution_does_not_fake_agent_rhythm():
+    """我方拖滞不得把均匀节律污染成智能体节律。
+
+    部署实测: nuclei 均匀 0.05s 节奏被 190 秒拖滞拉伸, 间隔变成
+    "微突发+长停顿"假象, cadence_agent_rhythm 误触(场景加权后 65 分)。
+    intervals() 必须剔除服务端注入的延迟。
+    """
+    profile = fingerprint.SessionProfile("poll", "203.0.113.9", 1)
+    import time as _t
+    now = _t.time()
+    spec = [("/robots.txt", 0.0), ("/.env", 0.0), ("/admin", 8.0),
+            ("/backup.sql", 0.0), ("/config.php", 12.0), ("/.git/config", 0.0),
+            ("/api", 15.0), ("/console/", 0.0), ("/debug", 9.0),
+            ("/uploads/", 0.0), ("/info.php", 11.0), ("/test.php", 0.0)]
+    clock = now
+    for index, (path, injected) in enumerate(spec):
+        raw = ("GET %s HTTP/1.1\r\nHost: h\r\nUser-Agent: nuclei/3.1\r\n\r\n"
+               % path).encode()
+        req = http_parse.parse_head(raw)
+        # 物理模型: 请求 k 的到达 = 上一请求到达 + 客户端固有间隔(0.06s)
+        #           + 上一请求响应的拖滞(客户端等响应才发下一个)。
+        # server_delay 记的是**本请求**响应将注入的延迟。
+        if index > 0:
+            clock += 0.06 + spec[index - 1][1]
+        profile.record(req, clock, "", server_delay=injected)
+    cadence, stats = fingerprint.analyze_cadence(profile.intervals())
+    assert cadence != "agent_rhythm", \
+        "剔除注入延迟后仍误判 agent_rhythm: %s" % stats
+
+    # 对照: 不剔除时会误判(证明修复确实必要)
+    polluted = [b - a for a, b in zip(profile.timestamps, profile.timestamps[1:])]
+    polluted_cadence, _ = fingerprint.analyze_cadence(polluted)
+    assert polluted_cadence == "agent_rhythm", \
+        "污染样本应呈 agent_rhythm(否则测试样本构造失效)"
+
+
+def test_honeypot_path_is_behavior_not_semantic():
+    """诱饵路径命中是行为特征 —— 扫描器比智能体碰得更勤。"""
+    verdict = verdict_for(scanner_profile("hp"))
+    for signal in verdict.signals:
+        if signal["name"] == "honeypot_path":
+            assert signal["kind"] == "behavior", \
+                "honeypot_path 类别应为 behavior, 实际 %s" % signal["kind"]
+            return
+    raise AssertionError("扫描器样本未命中 honeypot_path(样本失效)")
+
+
+# --------------------------------------------------------------------------
 # 场景权重覆盖确实生效
 # --------------------------------------------------------------------------
 

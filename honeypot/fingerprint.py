@@ -444,6 +444,11 @@ class SessionProfile(object):
         self.first_ts = first_ts or time.time()
         self.last_ts = self.first_ts
         self.timestamps = []
+        # 每个请求由**我方拖滞**注入的延迟(秒), 与 timestamps 对齐。
+        # 用途: 节律分析必须剔除自己的影响 —— 拖滞会把扫描器的均匀节律
+        # 拉成"微突发+长停顿"的假智能体节律(部署实测: nuclei 被自己的
+        # 190 秒拖滞污染成 cadence_agent_rhythm, 误判 llm_agent)。
+        self.server_delays = []
         self.paths = []
         self.methods = []
         self.asset_count = 0
@@ -472,10 +477,11 @@ class SessionProfile(object):
 
     # ---- 摄入 ----------------------------------------------------------
 
-    def record(self, req, ts, body_text=""):
+    def record(self, req, ts, body_text="", server_delay=0.0):
         self.req_count += 1
         self.last_ts = ts
         self.timestamps.append(ts)
+        self.server_delays.append(float(server_delay or 0.0))
         self.paths.append(req.path or "/")
         self.methods.append(req.method or "")
         if req.is_asset:
@@ -513,8 +519,27 @@ class SessionProfile(object):
 
     # ---- 分析 ----------------------------------------------------------
 
+    def note_server_delay(self, seconds):
+        """在最近一次 record 之后补记该请求的拖滞时长(计划在响应阶段才确定)。"""
+        if self.server_delays:
+            self.server_delays[-1] += float(seconds or 0.0)
+
     def intervals(self):
-        return [b - a for a, b in zip(self.timestamps, self.timestamps[1:]) if b >= a]
+        """相邻请求间隔 —— 剔除我方拖滞注入的部分。
+
+        顺序客户端会等响应再发下一请求, 因此响应 i 的拖滞会等量推迟
+        请求 i+1 的到达; 减去它得到对方的真实节律。并发客户端会略微
+        高估间隔, 但方向是保守的(更难触发 agent_rhythm)。
+        """
+        out = []
+        stamps, delays = self.timestamps, self.server_delays
+        for index in range(len(stamps) - 1):
+            raw = stamps[index + 1] - stamps[index]
+            if raw < 0:
+                continue
+            injected = delays[index] if index < len(delays) else 0.0
+            out.append(max(0.0, raw - injected))
+        return out
 
     def dominant_header_sig(self):
         if not self.header_sigs:
@@ -825,8 +850,9 @@ def evaluate(profile, req, index=None, now=None):
                     evidence="%d 个侦察路径中 %.0f%% 按清单顺序推进(辅助证据)" % (
                         playbook_len, playbook_ratio * 100))
 
+    # 诱饵路径命中是行为特征而非语义特征: 扫描器比智能体更频繁地碰它们
     if profile.honeypot_path_hits:
-        verdict.add("honeypot_path", kind="semantic",
+        verdict.add("honeypot_path", kind="behavior",
                     evidence="命中诱饵路径: %s" % ",".join(profile.honeypot_path_hits[:6]))
 
     if req.malformed or not req.is_http:
@@ -852,8 +878,11 @@ def evaluate(profile, req, index=None, now=None):
                         "; ".join(str(e["detail"]) for e in profile.beacon_events[:4])))
         verdict.decisive.append("beacon_callback")
 
+    # 蜜标读取证明"窃取意图"(取证价值极高), 但不证明"是 LLM" ——
+    # 字典扫描器命中 /.env 是家常便饭(部署实测: nuclei 因此被误判)。
+    # decisive 只保留上下文复用类证明(金丝雀/服从/信标)。
     if profile.honeytoken_paths:
-        verdict.add("honeytoken_read", kind="decisive",
+        verdict.add("honeytoken_read", kind="semantic",
                     evidence="读取了蜜标凭据: %s" % ",".join(profile.honeytoken_paths[:6]))
 
     # ---------- 跨会话归因 ----------
@@ -877,7 +906,15 @@ def evaluate(profile, req, index=None, now=None):
     if verdict.decisive:
         verdict.confidence = max(verdict.confidence, 0.97)
 
-    llm_evidence = any(s["kind"] in ("llm", "decisive", "semantic") for s in verdict.signals) or bool(ai_hits or agent_hits)
+    # "像 LLM"的依据必须强: 上下文复用类确证(decisive), 或载荷里出现
+    # 工具调用结构/自我暴露/自然语言指令(强语义)。任意 semantic 都算
+    # 会让"读过诱饵文件"这类弱特征把扫描器推成 llm_agent。
+    STRONG_SEMANTIC = ("toolcall_payload", "self_identification",
+                       "natural_language_payload", "cadence_agent_rhythm")
+    llm_evidence = (
+        any(s["kind"] in ("llm", "decisive") for s in verdict.signals)
+        or any(s["name"] in STRONG_SEMANTIC for s in verdict.signals)
+        or bool(ai_hits or agent_hits))
     if verdict.score >= 80 and llm_evidence:
         verdict.label = "llm_agent"
     elif verdict.score >= 55 and llm_evidence:

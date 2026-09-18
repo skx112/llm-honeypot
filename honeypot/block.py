@@ -182,6 +182,12 @@ def validate_ruleset(text, timeout=15):
         return False, "校验执行失败: %s" % exc
     output = proc.stdout.decode("utf-8", "replace").strip()
     if proc.returncode != 0:
+        # nft -c 即便只做校验也需要 CAP_NET_ADMIN。非特权运行(蜜罐的
+        # 推荐姿势)会得到 "Operation not permitted" —— 这不是语法错误,
+        # 报成"校验未通过"会误导排障(部署实测踩过)。区分两者。
+        if "operation not permitted" in output.lower():
+            return True, ("跳过校验: 无 CAP_NET_ADMIN(非特权运行属预期)。"
+                          "规则文件已生成, 落地前请在特权环境复核语法")
         return False, output or "nft 语法校验未通过(退出码 %d)" % proc.returncode
     return True, output
 

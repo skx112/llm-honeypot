@@ -491,6 +491,8 @@ class HoneypotServer(object):
         spent = time.time() - started
         self.stats["bytes_out"] += sent
         self.stats["tarpit_seconds"] += spent
+        # 回填本请求的注入延迟 —— 下一轮节律分析要剔除它
+        session.profile.note_server_delay(spent)
         return status, sent, spent
 
     @staticmethod

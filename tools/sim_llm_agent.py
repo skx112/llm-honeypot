@@ -94,7 +94,15 @@ def _request(target, path, method="GET", headers=None, timeout=30, source_ip=Non
         request.add_header(name, value)
 
     opener = None
-    if source_ip:
+    if url.startswith("https"):
+        # 蜜罐 TLS 面用自签证书; 真实攻击工具默认忽略校验, 模拟器同样如此
+        import ssl
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        opener = urllib.request.build_opener(
+            urllib.request.HTTPSHandler(context=ctx))
+    if opener is None and source_ip:
         # 通过绑定源地址来模拟不同来源 IP(用于验证跨源归因)
         import http.client
         from urllib.parse import urlsplit
@@ -117,7 +125,8 @@ def _request(target, path, method="GET", headers=None, timeout=30, source_ip=Non
 
     started = time.time()
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        open_url = opener.open if opener else urllib.request.urlopen
+        with open_url(request, timeout=timeout) as response:
             body = response.read(262144)
             return response.status, body, time.time() - started, None
     except urllib.error.HTTPError as exc:

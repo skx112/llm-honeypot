@@ -1072,15 +1072,21 @@ def cmd_cert(args):
 def cmd_hub(args):
     """启动聚合节点: 接收各实例推送, 合并统一视图(跨实例战役归因)。"""
     cfg = load_config(args)
-    if args.token:
-        cfg["hub"] = dict(cfg.get("hub") or {})
-        cfg["hub"]["token"] = args.token
-    if args.port:
-        cfg["hub"]["port"] = args.port
-    if args.host:
-        cfg["hub"]["host"] = args.host
-    if args.db:
-        cfg["hub"]["db"] = args.db
+    # Config 是只读视图 —— 命令行覆盖经 as_dict 重建(部署实测抓过:
+    # 直接对 Config 下标赋值会 TypeError)
+    if args.token or args.port or args.host or args.db:
+        data = cfg.as_dict()
+        hub_cfg = dict(data.get("hub") or {})
+        if args.token:
+            hub_cfg["token"] = args.token
+        if args.port:
+            hub_cfg["port"] = args.port
+        if args.host:
+            hub_cfg["host"] = args.host
+        if args.db:
+            hub_cfg["db"] = args.db
+        data["hub"] = hub_cfg
+        cfg = config_mod.Config(data, root=cfg.root)
 
     token = (cfg.get("hub") or {}).get("token", "")
     if not token:

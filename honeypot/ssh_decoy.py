@@ -549,6 +549,21 @@ class SSHDecoy(object):
 
         self.index.observe(profile)
 
+        # 战役归因: 与 HTTP 侧同一规则(行为哈希聚合, 多源 IP 并集)。
+        # 此前 SSH 会话从不 upsert 战役 —— 多源归因只存在于内存索引,
+        # 不落库、进不了上报与 hub(部署实测发现)。
+        campaign_id = None
+        if verdict.score >= 50 or len(self.index.ips_for_behavior(
+                profile.behavior_hash())) >= 2:
+            campaign_id = "camp-%s" % profile.behavior_hash()[:12]
+            if self.store is not None:
+                self.store.upsert_campaign(
+                    campaign_id, profile.behavior_hash(), ip=record["ip"],
+                    ua="SSH/%s" % record["client_label"],
+                    toolchain="ssh:%s" % record["client_label"],
+                    model_guess=None, score=verdict.score,
+                    evidence={"algorithm_fp": kex["fingerprint"]})
+
         if self.store is not None:
             request_id = self.store.log_request(
                 session["sid"], record["ip"],
@@ -570,7 +585,9 @@ class SSHDecoy(object):
             self.store.bump_session(session["sid"], time.time(),
                                     bytes_in=kex["raw_size"], bytes_out=len(self.banner))
             self.store.update_session(
-                session["sid"], ua=("SSH/%s" % record["client_label"])[:512],
+                session["sid"],
+                campaign_id=campaign_id,
+                ua=("SSH/%s" % record["client_label"])[:512],
                 header_sig=kex["fingerprint"], label=verdict.label,
                 score=verdict.score, confidence=verdict.confidence,
                 action=self._action_for(verdict.score),
