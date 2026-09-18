@@ -35,7 +35,8 @@ ARCHITECTURE_DOC = os.path.join(ROOT, "docs", "ARCHITECTURE.zh-CN.md")
 # 按职责定义的分层。这是**权威定义**: 文档里的分层表必须与之一致。
 LAYERS = {
     0: ["__init__", "config", "http_parse", "store", "fingerprint",
-        "countermeasures", "scenarios", "block", "tarpit", "report", "dashboard"],
+        "countermeasures", "scenarios", "block", "tarpit", "report",
+        "dashboard", "alerts", "hub"],
     1: ["templating", "inject"],
     2: ["respond", "deception", "ssh_decoy", "server"],
     3: ["cli"],

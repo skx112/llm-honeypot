@@ -325,6 +325,18 @@ LLM 智能体每次工具调用新建连接是常态，这个坑实测踩过。
 - **依赖**：无（`server`/`store` 由构造注入，可为 None —— 此时接口仍返回完整键集的零值）
 - **刻意不做**：不做认证（绑定回环即边界）；不做前端构建（零构建步骤，静态资源直接服务）
 
+#### `alerts.py`
+- **职责**：统一告警出口 —— 本地文件(兼容旧格式, dashboard 依赖) + 可选 webhook 异步外发；后台线程 + 有界队列，告警故障绝不影响蜜罐主路径。
+- **公开接口**：`Alerter(config)`（`.emit(line, severity)` / `.close()` / `.stats()`）、`get_alerter(config)`（进程单例）、`reset_for_tests()`
+- **依赖**：无
+- **刻意不做**：不做重试队列/签名（需要时接可选依赖，接口不变）；不做多协议（webhook POST JSON 足够对接主流机器人网关）
+
+#### `hub.py`
+- **职责**：多节点聚合 —— 中心节点接收各实例增量遥测并合并；实例侧 `push_bundle()` 水位线推送。战役按 `behavior_hash` 合并，跨实例归因"免费"获得。
+- **公开接口**：`Hub(config, store, token)`（`start()` / `close()` 协程、`.ingest(bundle)`、`.summary()`、`.campaigns_payload()`）、`push_bundle(config, hub_url, token, ...)`
+- **依赖**：无（store 经参数注入）
+- **刻意不做**：不暴露公网（内网设施；出站白名单由 isolate.sh 为 hub 单独放行，不违反"蜜罐不外连"）；不做双向同步（单向推送 + 幂等导入足够）
+
 ### L1 — 领域层
 
 #### `inject.py`
@@ -381,7 +393,7 @@ LLM 智能体每次工具调用新建连接是常态，这个坑实测踩过。
 
 | 层 | 模块 | 允许依赖 |
 |---|---|---|
-| **L0 基础** | `config` `http_parse` `store` `fingerprint` `countermeasures` `scenarios` `block` `tarpit` `report` `dashboard` | **无内部模块** |
+| **L0 基础** | `config` `http_parse` `store` `fingerprint` `countermeasures` `scenarios` `block` `tarpit` `report` `dashboard` `alerts` `hub` | **无内部模块** |
 | **L1 领域** | `templating` `inject` | L0 |
 | **L2 协议与适配** | `respond` `deception` `ssh_decoy` `server` | L0、L1、同层 |
 | **L3 编排** | `cli` | 全部 |

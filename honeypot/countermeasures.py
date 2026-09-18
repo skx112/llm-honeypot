@@ -42,6 +42,31 @@ import re
 
 SCHEMA_VERSION = 1
 
+# ---- 模型家族与反制的适配关系 -------------------------------------------
+#
+# 反制方式并非对一切"大模型"同等有效, 这是按模型分化的依据:
+#
+#   对齐 API 模型(claude/gpt/gemini/qwen/glm/kimi/deepseek/grok/ernie):
+#     经过 RLHF 与安全对齐, 存在可被触发的合规护栏 —— guardrail 类载荷
+#     (诱导其拒绝越权动作)与授权撤销类载荷有效。
+#
+#   本地裸模型(local-llm/llama/mistral 等自部署, 经 ollama/vllm/llama.cpp):
+#     通常无对齐层或护栏极弱 —— guardrail 类载荷无从触发; 对它们有效的
+#     是内容无关的手段: 拖滞、预算耗尽(分页迷宫/上下文挤占)、数据污染、
+#     蜜标。投放护栏类等于浪费最宝贵的投递面。
+#
+# 未知家族按"可能是对齐模型"处理(保守: 少误伤, guardrail 类仍投)。
+
+ALIGNED_MODEL_FAMILIES = frozenset((
+    "claude", "gpt", "gemini", "qwen", "glm", "kimi", "deepseek", "grok", "ernie",
+))
+BARE_MODEL_FAMILIES = frozenset((
+    "local-llm", "llama", "mistral",
+))
+
+# 这些类别的反制依赖目标存在可触发的对齐护栏
+ALIGNMENT_DEPENDENT_CATEGORIES = frozenset(("guardrail",))
+
 CATEGORIES = {
     "abort": "中止任务 —— 让智能体主动停手",
     "misdirect": "误导建模 —— 让它建立错误的目标模型",
@@ -70,7 +95,7 @@ class Countermeasure(object):
 
     __slots__ = ("id", "category", "tier", "weight", "stealth", "intent",
                  "rationale", "text_zh", "text_en", "surfaces", "requires",
-                 "tags", "source")
+                 "tags", "source", "target_models", "exclude_models")
 
     def __init__(self, data, source="builtin"):
         self.id = data["id"]
@@ -85,6 +110,12 @@ class Countermeasure(object):
         self.surfaces = list(data.get("surfaces") or [])
         self.requires = dict(data.get("requires") or {})
         self.tags = list(data.get("tags") or [])
+        # 模型定向(均可选):
+        #   target_models  仅投给这些家族(如 ["claude","gpt"] 的护栏诱导)
+        #   exclude_models 不投给这些家族
+        # 为空 = 模型无关。guardrail 类别默认视为 exclude 裸模型家族。
+        self.target_models = list(data.get("target_models") or [])
+        self.exclude_models = list(data.get("exclude_models") or [])
         self.source = source
 
     def text(self, language="zh"):
@@ -98,6 +129,24 @@ class Countermeasure(object):
     def applies_to(self, surface):
         return not self.surfaces or surface in self.surfaces
 
+    def applies_to_model(self, family):
+        """该反制是否适用于给定模型家族。
+
+        规则(按序):
+          1. target_models 非空 → 家族必须在列表内
+          2. exclude_models 含该家族 → 不投
+          3. 依赖对齐的类别(guardrail) + 裸模型家族 → 不投(护栏无从触发)
+          4. 家族未知(空) → 保守放行
+        """
+        if self.target_models and family and family not in self.target_models:
+            return False
+        if family and family in self.exclude_models:
+            return False
+        if (family in BARE_MODEL_FAMILIES
+                and self.category in ALIGNMENT_DEPENDENT_CATEGORIES):
+            return False
+        return True
+
     def min_score(self):
         return int(self.requires.get("min_score", 0))
 
@@ -109,6 +158,8 @@ class Countermeasure(object):
             "text_zh": self.text_zh, "text_en": self.text_en,
             "surfaces": self.surfaces, "requires": self.requires,
             "tags": self.tags, "source": self.source,
+            "target_models": self.target_models,
+            "exclude_models": self.exclude_models,
         }
 
     def describe(self):
@@ -148,6 +199,18 @@ def validate_countermeasure(data, source="<inline>"):
     surfaces = data.get("surfaces") or []
     if not isinstance(surfaces, list):
         raise ValueError("%s: surfaces 必须是数组" % source)
+
+    for key in ("target_models", "exclude_models"):
+        value = data.get(key) or []
+        if not isinstance(value, list) or any(not isinstance(v, str) for v in value):
+            raise ValueError("%s: %s 必须是字符串数组" % (source, key))
+        unknown = [v for v in value
+                   if v not in ALIGNED_MODEL_FAMILIES | BARE_MODEL_FAMILIES]
+        if unknown:
+            raise ValueError(
+                "%s: %s 含未知模型家族 %s; 可用: %s"
+                % (source, key, ", ".join(unknown),
+                   ", ".join(sorted(ALIGNED_MODEL_FAMILIES | BARE_MODEL_FAMILIES))))
 
     # 占位符检查: 写错占位符会导致渲染出 {foo} 这种明显痕迹
     text = (data.get("text_zh", "") or "") + " " + (data.get("text_en", "") or "")
@@ -229,11 +292,13 @@ class Registry(object):
     def by_tier(self, max_tier):
         return [item for item in self._items.values() if item.tier <= max_tier]
 
-    def select(self, score, surface=None, language="zh"):
+    def select(self, score, surface=None, language="zh", model_family=None):
         """按分数选出一批要投放的反制方式。
 
         选取策略: 先按分数定层级门控, 再在同层内按 weight 降序。
         隐蔽度作为同权重时的排序参考 —— 低分区优先投隐蔽的。
+        model_family 用于按模型分化: 裸模型家族自动过滤依赖对齐护栏的
+        反制(guardrail 类), 使投递面集中到对它真正有效的手段上。
         """
         max_tier = self.tier_for_score(score)
         if max_tier <= 0:
@@ -241,7 +306,8 @@ class Registry(object):
         candidates = [item for item in self._items.values()
                       if item.tier <= max_tier
                       and item.min_score() <= score
-                      and (surface is None or item.applies_to(surface))]
+                      and (surface is None or item.applies_to(surface))
+                      and item.applies_to_model(model_family)]
         candidates.sort(key=lambda item: (-item.weight, -item.stealth))
         return candidates
 

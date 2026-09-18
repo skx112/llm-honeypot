@@ -171,14 +171,15 @@ def cmd_serve(args):
         fail("HTTP 监听启动失败")
         return EXIT_ERROR
     wildcard = False
+    scheme = "https" if cfg.get("http.tls.enabled") else "http"
     for address in bound:
         host = address[0]
         if host in ("0.0.0.0", "::"):
             wildcard = True
-            dim("HTTP 蜜罐  : http://%s:%s  %s" % (
-                host, address[1], _c("[对所有网卡可达]", "33")))
+            dim("HTTP 蜜罐  : %s://%s:%s  %s" % (
+                scheme, host, address[1], _c("[对所有网卡可达]", "33")))
         else:
-            dim("HTTP 蜜罐  : http://%s:%s" % (host, address[1]))
+            dim("HTTP 蜜罐  : %s://%s:%s" % (scheme, host, address[1]))
     if wildcard:
         warn("正在监听通配地址 —— 本实例对所在网段(乃至公网)全部可达。")
         dim("蜜罐本就该可达, 但请确认: 已在独立诱饵网段、出站已 DROP、")
@@ -997,6 +998,146 @@ def cmd_countermeasures(args):
 
 
 # --------------------------------------------------------------------------
+# cert —— 自签证书(TLS 蜜罐面)
+# --------------------------------------------------------------------------
+
+def cmd_cert(args):
+    """生成自签证书, 供启用 HTTPS 蜜罐面。
+
+    为什么用 openssl CLI 而不是 Python 库: 生成证书需要密码学能力, 标准库
+    只有"加载"没有"签发"; openssl 在目标系统(CentOS 8 等)上随基础组件存在,
+    比引入 cryptography 依赖更符合"核心零依赖"的部署约束。
+    """
+    import subprocess
+    cfg = load_config(args)
+    out_dir = os.path.abspath(args.out or os.path.join(cfg.root, "tls"))
+    cn = args.cn or "portal.example.com"
+    cert = os.path.join(out_dir, "cert.pem")
+    key = os.path.join(out_dir, "key.pem")
+
+    binary = None
+    for candidate in ("openssl", "/usr/bin/openssl", "/usr/local/bin/openssl"):
+        with open(os.devnull, "w") as devnull:
+            try:
+                subprocess.check_call([candidate, "version"], stdout=devnull,
+                                      stderr=devnull)
+                binary = candidate
+                break
+            except (OSError, subprocess.CalledProcessError):
+                continue
+    if binary is None:
+        fail("未找到 openssl —— 自签证书需要它(目标系统通常自带)")
+        return EXIT_ERROR
+
+    if (os.path.exists(cert) or os.path.exists(key)) and not args.force:
+        fail("证书已存在: %s (加 --force 覆盖)" % cert)
+        return EXIT_BAD_INPUT
+
+    os.makedirs(out_dir, mode=0o700, exist_ok=True)
+    subject = "/CN=%s" % cn
+    command = [
+        binary, "req", "-x509", "-newkey", "rsa:2048", "-nodes",
+        "-keyout", key, "-out", cert,
+        "-days", str(args.days), "-subj", subject,
+        "-addext", "subjectAltName=DNS:%s,DNS:localhost,IP:127.0.0.1" % cn,
+    ]
+    try:
+        proc = subprocess.Popen(command, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT)
+        output, _ = proc.communicate(timeout=60)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        fail("openssl 执行失败: %s" % exc)
+        return EXIT_ERROR
+    if proc.returncode != 0:
+        fail("证书生成失败: %s" % output.decode("utf-8", "replace")[:300])
+        return EXIT_ERROR
+    os.chmod(key, 0o600)
+
+    ok("自签证书已生成")
+    dim("证书 : %s" % cert)
+    dim("私钥 : %s (权限 600)" % key)
+    dim("CN    : %s | 有效期 %d 天" % (cn, args.days))
+    print()
+    dim("启用 HTTPS 蜜罐面 —— 在 config.json 的 http.tls 段设置:")
+    dim('  "tls": {"enabled": true, "cert": "%s", "key": "%s"}' % (cert, key))
+    dim("警告: 自签证书会被真浏览器标“不安全”。对蜜罐这通常是优点 ——")
+    dim("      攻击者工具默认忽略证书校验, 而真人会先起疑心。")
+    return EXIT_OK
+
+
+# --------------------------------------------------------------------------
+# hub / push —— 多节点聚合
+# --------------------------------------------------------------------------
+
+def cmd_hub(args):
+    """启动聚合节点: 接收各实例推送, 合并统一视图(跨实例战役归因)。"""
+    cfg = load_config(args)
+    if args.token:
+        cfg["hub"] = dict(cfg.get("hub") or {})
+        cfg["hub"]["token"] = args.token
+    if args.port:
+        cfg["hub"]["port"] = args.port
+    if args.host:
+        cfg["hub"]["host"] = args.host
+    if args.db:
+        cfg["hub"]["db"] = args.db
+
+    token = (cfg.get("hub") or {}).get("token", "")
+    if not token:
+        warn("未设置 token —— 任何能连到本端口的都可作为推送")
+        dim("生成随机 token: python3 -c \"import secrets;print(secrets.token_hex(16)\"")
+
+    import hub as hub_mod
+    import store as store_mod
+    store = store_mod.Store(cfg.path(cfg.get("hub", {}).get("db", "var/hub.db")))
+    node = hub_mod.Hub(cfg, store=store, token=token)
+
+    loop = __import__("asyncio").get_event_loop()
+    bound = loop.run_until_complete(node.start())  # store 已注入
+    heading("CogTrap hub —— 多节点聚合")
+    dim("监听     : %s:%s (仅内网使用)" % bound[:2])
+    dim("中心库   : %s" % cfg.path(cfg.get("hub", {}).get("db", "var/hub.db")))
+    dim("鉴权     : %s" % ("token 已启用" if token else "未启用(不推荐)"))
+    dim("查询     : GET /stats | GET /api/campaigns")
+    print()
+    ok("已启动。实例侧推送: cogtrap push --hub http://%s:%s --token <token>" % bound[:2])
+    print()
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        print()
+        ok("收到中断, 正在停止...")
+    finally:
+        loop.run_until_complete(node.close())
+        print()
+        heading("hub 统计")
+        table(sorted(node.stats.items()))
+        store.close()
+    return EXIT_OK
+
+
+def cmd_push(args):
+    """把本实例新遥测推送给聚合节点(幂等, 成功才推进水位线)。"""
+    cfg = load_config(args)
+    if not args.hub:
+        fail("需要 --hub <URL>, 例如 http://10.1.1.10:9443")
+        return EXIT_BAD_INPUT
+    import hub as hub_mod
+    import store as store_mod
+    store = store_mod.Store(cfg.store_path())
+    try:
+        ok_all, message = hub_mod.push_bundle(cfg, args.hub, args.token or "",
+                                              store, timeout=args.timeout)
+    finally:
+        store.close()
+    if ok_all:
+        ok("推送完成: %s" % message)
+        return EXIT_OK
+    fail(message)
+    return EXIT_ERROR
+
+
+# --------------------------------------------------------------------------
 # report —— 取证与上报
 # --------------------------------------------------------------------------
 
@@ -1325,6 +1466,28 @@ def build_parser():
                       choices=["list", "stats", "show"], help="默认 list")
     p_cm.add_argument("id", nargs="?", help="show 时的反制方式 id")
     p_cm.set_defaults(func=cmd_countermeasures)
+
+    # cert
+    p_cert = subparsers.add_parser("cert", help="生成自签证书(启用 HTTPS 蜜罐面)")
+    p_cert.add_argument("--cn", help="证书 CN(默认 portal.example.com, 用你的诱饵域名)")
+    p_cert.add_argument("--days", type=int, default=825, help="有效期天数(默认 825)")
+    p_cert.add_argument("-o", "--out", help="输出目录(默认 ./tls)")
+    p_cert.add_argument("--force", action="store_true", help="已存在时覆盖")
+    p_cert.set_defaults(func=cmd_cert)
+
+    # hub / push
+    p_hub = subparsers.add_parser("hub", help="启动多节点聚合节点(内网)")
+    p_hub.add_argument("--host", help="监听地址(默认 127.0.0.1, 部署时用内网地址)")
+    p_hub.add_argument("--port", type=int, help="端口(默认 9443)")
+    p_hub.add_argument("--db", help="中心库路径(默认 var/hub.db)")
+    p_hub.add_argument("--token", help="共享鉴权 token(实例侧使用同一串)")
+    p_hub.set_defaults(func=cmd_hub)
+
+    p_push = subparsers.add_parser("push", help="把本实例遥测推送给聚合节点")
+    p_push.add_argument("--hub", required=True, help="hub 地址, 如 http://10.1.1.10:9443")
+    p_push.add_argument("--token", default="", help="与 hub 一致的共享 token")
+    p_push.add_argument("--timeout", type=float, default=30.0)
+    p_push.set_defaults(func=cmd_push)
 
     # report
     p_rep = subparsers.add_parser("report", help="生成取证与上报材料")

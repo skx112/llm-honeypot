@@ -725,20 +725,12 @@ class SSHDecoy(object):
                                   % record.get("client_label"))
 
     def _alert(self, line):
-        stamped = "%s [warning] [%s] %s" % (
-            time.strftime("%Y-%m-%dT%H:%M:%S%z"), self.instance_name, line)
+        """与 HTTP 侧共用同一 Alerter(同队列/线程与文件)。"""
+        import alerts
+        alerts.get_alerter(self.cfg).emit(line, "warning")
         if self.verbose:
-            print(stamped)
-        path = self.cfg.path(self.cfg.get("alert.log_path", "logs/alerts.log"))
-        try:
-            import os
-            directory = os.path.dirname(path)
-            if directory and not os.path.isdir(directory):
-                os.makedirs(directory, mode=0o750)
-            with open(path, "a") as handle:
-                handle.write(stamped + "\n")
-        except IOError:
-            pass
+            print("%s [warning] [%s] %s" % (
+                time.strftime("%Y-%m-%dT%H:%M:%S%z"), self.instance_name, line))
 
     def runtime_stats(self):
         return dict(self.stats)

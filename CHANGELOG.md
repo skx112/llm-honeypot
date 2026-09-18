@@ -12,6 +12,28 @@ are versioned independently (`schema: 1`) and validated at load time.
 ## [Unreleased]
 
 ### Added
+- Model-differentiated countermeasures: verdicts now expose a normalised
+  `model_family` (aligned API families vs bare local runtimes such as
+  ollama/vllm/llama.cpp, detected from UA, headers and payload mentions —
+  including a word-boundary fix so "ollama" is no longer misread as "llama").
+  Countermeasures accept `target_models`/`exclude_models`, and
+  alignment-dependent payloads (guardrail category) are automatically withheld
+  from bare-model agents that have no guardrails to trigger. Content-agnostic
+  payloads (tarpit, budget exhaustion, data pollution) reach every family.
+- Alert delivery (`honeypot/alerts.py`): unified file + optional async webhook
+  outlet. Bounded queue, background worker, severity gating, throttled failure
+  notes — alerting can never block or break the honeypot request path.
+- HTTPS honeypot surface: `cogtrap cert` generates a self-signed certificate
+  via the system `openssl` (no Python crypto dependency), and the server banner
+  now reflects the actual scheme. Verified end-to-end over TLS.
+- Multi-node aggregation (`honeypot/hub.py` + `cogtrap hub` / `cogtrap push`):
+  instances export watermark-incremental telemetry and push it (gzip, token
+  auth) to an internal hub; campaigns merge by `behavior_hash`, so the same
+  operator hitting multiple decoys collapses into one campaign with a union of
+  source IPs. Push is idempotent and only advances the watermark on success.
+- Deployment artefacts that the design doc promised but were missing:
+  `deploy/cogtrap.service` (systemd unit, least-privilege) and
+  `deploy/nftables-absorb.nft` (dry-run validated absorb ruleset example).
 - Contract compatibility gate: `test_stable_contracts_are_additive_only` records a
   baseline of the three **stable** data contracts (honeypot templates, scenario packs,
   countermeasure plugins) and fails on breaking changes. Required-field sets are

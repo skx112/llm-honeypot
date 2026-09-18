@@ -66,7 +66,13 @@ DEFAULTS = {
         "internal_api_like": True,
     },
     "store": {"path": "var/telemetry.db", "retention_days": 180},
-    "alert": {"enabled": True, "min_score": 70, "log_path": "logs/alerts.log"},
+    "alert": {
+        "enabled": True, "min_score": 70, "log_path": "logs/alerts.log",
+        # webhook 外发: 空 = 不外发(行为与此前完全一致)
+        "webhook_url": "",
+        "webhook_min_severity": "warning",
+        "webhook_timeout": 5.0,
+    },
 }
 
 # 运行时必须存在的目录, 由 ensure_dirs() 创建

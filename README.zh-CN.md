@@ -561,6 +561,13 @@ python3 tools/sim_llm_agent.py --target http://127.0.0.1:8080 --fast
 
 ---
 
+## 本版新增
+
+- 按模型分化的反制 —— 本地裸模型(ollama/vllm 等)不再收到对它们无效的护栏类载荷
+- webhook 告警外发(`alert.webhook_url`), 对接 SOC 平台
+- HTTPS 蜜罐面(`cogtrap cert` 一键自签证书)
+- 多节点聚合(`cogtrap hub` + `cogtrap push`), 跨实例战役归因
+
 ## 文档
 
 | 文档 | 回答的问题 |

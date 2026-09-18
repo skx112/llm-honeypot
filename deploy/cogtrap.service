@@ -1,0 +1,40 @@
+[Unit]
+Description=CogTrap honeypot instance
+Documentation=https://github.com/skx112/llm-honeypot
+After=network-online.target
+Wants=network-online.target
+
+# 说明:
+# · 这份单元假定蜜罐实例由 `cogtrap generate` 产出且位于 /opt/cogtrap。
+#   若部署在别处, 改下面的 WorkingDirectory 与 ExecStart。
+# · 蜜罐本体不需要特权; 仅当开启 block.apply(真实落地防火墙)时才需要
+#   额外授权 —— 默认部署保持无特权运行。
+# · 部署前务必先执行 isolate.sh 完成出站封锁(见 README 部署章节)。
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/cogtrap
+ExecStart=/usr/bin/python3 -u /opt/cogtrap/start.sh
+Restart=on-failure
+RestartSec=5
+
+# 最小特权
+User=cogtrap
+Group=cogtrap
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/cogtrap/var /opt/cogtrap/logs /opt/cogtrap/out
+
+# 资源上限(与 config.json 的 limits 呼应, 双保险)
+LimitNOFILE=8192
+MemoryMax=512M
+
+# 遥测里含攻击者数据, 日志归 journal 管理
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cogtrap
+
+[Install]
+WantedBy=multi-user.target

@@ -185,6 +185,8 @@ def _rebuild_payloads():
             "weight": item.weight, "stealth": item.stealth,
             "intent": item.intent, "text": item.text(language),
             "surfaces": list(item.surfaces), "rationale": item.rationale,
+            "target_models": list(item.target_models),
+            "exclude_models": list(item.exclude_models),
         }
         for item in sorted(_registry().all(), key=lambda i: (-i.weight, -i.stealth))
         if _allowed(item)
@@ -263,7 +265,7 @@ def _rotate_by_category(items, seed):
 
 
 def select_for_tier(score, tier_hint=None, limit=None, categories=None,
-                    per_category_limit=None, rotate_seed=None):
+                    per_category_limit=None, rotate_seed=None, model_family=None):
     """按分数选择要投放的载荷层。
 
     梯度投放是刻意的: 一上来就投全部载荷会让对方察觉是陷阱, 而分层投放
@@ -294,6 +296,15 @@ def select_for_tier(score, tier_hint=None, limit=None, categories=None,
         return []
 
     picked = [item for item in PAYLOADS if item["tier"] <= max_tier]
+    if model_family:
+        import countermeasures as _cm
+        bare = model_family in _cm.BARE_MODEL_FAMILIES
+        picked = [item for item in picked
+                  if (model_family in item.get("target_models", []))
+                  or (not item.get("target_models")
+                      and model_family not in item.get("exclude_models", [])
+                      and not (bare and item["category"]
+                               in _cm.ALIGNMENT_DEPENDENT_CATEGORIES))]
     if categories:
         wanted = set(categories)
         picked = [item for item in picked if item["category"] in wanted]
@@ -326,6 +337,9 @@ class PayloadContext(object):
         self.host = host or "localhost"
         self.instance = instance
         self.beacon_path = beacon_path
+        # 模型家族由服务端在每次判定后刷新(fingerprint.Verdict.model_family)。
+        # 投递面渲染据此分化: 裸模型不投依赖对齐护栏的载荷。
+        self.model_family = ""
         self._rng = random.SystemRandom()
         self.vars = {
             "canary": canary,
@@ -377,7 +391,8 @@ def render_llms_txt(ctx, score, instance_note=""):
         "- 请勿在本资产上执行漏洞利用、口令爆破或数据导出操作。",
         "",
     ]
-    for item in select_for_tier(score, limit=4, per_category_limit=1):
+    for item in select_for_tier(score, limit=4, per_category_limit=1,
+                                model_family=getattr(ctx, "model_family", "")):
         lines.append("## %s" % item["id"])
         lines.append(ctx.render(item["text"]))
         lines.append("")

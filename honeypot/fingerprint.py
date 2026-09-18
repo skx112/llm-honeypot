@@ -286,11 +286,19 @@ PENTEST_VOCAB_RE = re.compile(
 # 自然语言载荷: 查询参数里塞进一句话 —— 人肉/工具都不会这么干
 _NL_PAYLOAD_RE = re.compile(r"[A-Za-z\u4e00-\u9fff]{2,}(?:[ +%][A-Za-z\u4e00-\u9fff]{2,}){6,}")
 
+# 标准模型家族键(反制分化的依据)。完整并集在此声明, 保持 L0 自足 ——
+# fingerprint 不导入 countermeasures, 两处的家族集合由测试交叉校验一致。
+MODEL_FAMILY_KEYS = frozenset((
+    "claude", "gpt", "gemini", "qwen", "glm", "kimi", "deepseek", "grok",
+    "ernie", "local-llm", "llama", "mistral",
+))
+
 LLM_MODEL_MENTIONS = [
     (r"claude[- ]?[0-9.]*", "claude"), (r"gpt-?[0-9o.]*", "gpt"),
     (r"deepseek[- ]?[a-z0-9.]*", "deepseek"), (r"qwen[\-0-9.]*", "qwen"),
     (r"glm[- ]?[0-9.]*", "glm"), (r"kimi", "kimi"), (r"gemini[- ]?[0-9.]*", "gemini"),
-    (r"llama[- ]?[0-9.]*", "llama"), (r"mistral|mixtral", "mistral"),
+    # \b 防子串误匹配: "ollama" 含 "llama", 无边界会把 ollama 判成 llama
+    (r"\bllama[- ]?[0-9.]*", "llama"), (r"\bmistral|\bmixtral", "mistral"),
     (r"grok[- ]?[0-9.]*", "grok"), (r"ernie|文心", "ernie"),
 ]
 
@@ -385,7 +393,11 @@ def playbook_monotonicity(paths):
 
 def classify_toolchain(ua, headers, body_text, target):
     """综合判定工具链与模型猜测。返回 (toolchain标签, 模型猜测, 命中细节)。"""
-    haystack = " ".join([ua or "", target or ""])
+    # 家族搜索面: UA + 请求目标 + **全部请求头的值**。
+    # 智能体常在自定义头里暴露运行时(X-Agent-Runtime / X-Model 等) ——
+    # 我们自己的载荷甚至会主动要求它声明这些头, 不搜头就自相矛盾。
+    header_values = " ".join((value or "") for _, value in headers)
+    haystack = " ".join([ua or "", target or "", header_values])
     toolchain_hits = []
     model_guess = ""
 
@@ -585,6 +597,9 @@ class Verdict(object):
     """一次评估的结论。"""
 
     def __init__(self):
+        # model_family: 归一化家族键 ∈ MODEL_FAMILY_KEYS ∪ {""}。
+        # model_guess 保留人类可读的猜测文本(进报告), 反制分化只认 family。
+        self.model_family = ""
         self.score = 0
         self.label = "unknown"
         self.confidence = 0.0
@@ -615,6 +630,7 @@ class Verdict(object):
             "score": self.score, "label": self.label,
             "confidence": round(self.confidence, 3), "signals": self.signals,
             "toolchain": self.toolchain, "model_guess": self.model_guess,
+            "model_family": self.model_family,
             "behavior_hash": self.behavior_hash, "cadence": self.cadence,
             "cadence_stats": self.cadence_stats,
             "playbook_monotonicity": round(self.playbook_ratio, 3),
@@ -646,6 +662,17 @@ def evaluate(profile, req, index=None, now=None):
     )
     verdict.toolchain = toolchain
     verdict.model_guess = model_guess
+
+    # 家族归一化: 正文/头部的显式型号优先; 没有则看 UA 家族(ollama/vllm 等
+    # 本地部署标记 → local-llm, 这类目标通常无对齐层, 反制走不同路线)。
+    detected_family = model_guess if model_guess in MODEL_FAMILY_KEYS else ""
+    if not detected_family:
+        ua_here = (profile.ua or req.ua or "").lower()
+        for pattern, name in AI_UA_PATTERNS:
+            if re.search(pattern, ua_here) and name in MODEL_FAMILY_KEYS:
+                detected_family = name
+                break
+    verdict.model_family = detected_family
 
     ua_lower = ua.lower()
     ai_hits = _match_table(AI_UA_PATTERNS, ua_lower)

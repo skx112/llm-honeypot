@@ -513,6 +513,95 @@ class Store(object):
             (limit,),
         )
 
+    # ---- 多节点聚合: 导出/导入 -----------------------------------------
+    #
+    # 设计: 各蜜钮实例周期性 export_since(水位线) 推给中心 hub; hub 端
+    # import_records 合并入库。战役表按 behavior_hash upsert, 多实例的
+    # 同一操作者(同行为指纹、不同来源 IP)会自动并成一个战役 —— 这正是
+    # 跨实例归因想要的, 且不需要任何新表。
+
+    _EXPORT_TABLES = ("sessions", "requests", "signals", "events", "campaigns",
+                      "honeytokens", "blocks")
+
+    def export_since(self, since_ts):
+        """导出自 since_ts 起的新数据(水位线增量)。返回 dict[table] = rows。"""
+        # 各表的增量时间列不同(sessions 没有 ts 列, 用 last_seen)
+        TIME_COLUMN = {
+            "sessions": "last_seen", "requests": "ts", "signals": "ts",
+            "events": "ts", "campaigns": "last_seen",
+            "honeytokens": "created", "blocks": "ts",
+        }
+        out = {}
+        with self._lock:
+            for table in self._EXPORT_TABLES:
+                rows = self._read(
+                    "SELECT * FROM %s WHERE %s >= ?"
+                    % (table, TIME_COLUMN[table]), (since_ts,))
+                out[table] = rows
+        out["_meta"] = {"schema": 1, "exported_at": time.time(), "since": since_ts}
+        return out
+
+    def import_records(self, bundle):
+        """导入一份 export_since 的产物(幂等: 重复导入不产生重复行)。
+
+        campaigns 走 upsert 合并(IP 列表并集), 其余表按主键 INSERT OR IGNORE。
+        返回 (导入行数, 跳过行数)。
+        """
+        imported = skipped = 0
+        with self._lock:
+            for table in self._EXPORT_TABLES:
+                rows = bundle.get(table) or []
+                for row in rows:
+                    row = dict(row)
+                    if table == "campaigns":
+                        self._merge_campaign_row(row)
+                        imported += 1
+                        continue
+                    columns = list(row.keys())
+                    if not columns:
+                        continue
+                    placeholders = ",".join("?" for _ in columns)
+                    cursor = self._conn.execute(
+                        "INSERT OR IGNORE INTO %s (%s) VALUES (%s)"
+                        % (table, ",".join(columns), placeholders),
+                        [row[c] for c in columns])
+                    if cursor.rowcount:
+                        imported += 1
+                    else:
+                        skipped += 1
+            self._conn.commit()
+        return imported, skipped
+
+    def _merge_campaign_row(self, row):
+        """按 id 合并战役行: IP/UA 列表取并集, 分数与计数取最大。"""
+        existing = self._read_one("SELECT * FROM campaigns WHERE id = ?",
+                                  (row.get("id"),))
+        if existing is None:
+            columns = list(row.keys())
+            self._conn.execute(
+                "INSERT OR IGNORE INTO campaigns (%s) VALUES (%s)"
+                % (",".join(columns), ",".join("?" for _ in columns)),
+                [row.get(c) for c in columns])
+            return
+        ips = _load_list(existing["ips_json"]) or []
+        for ip in (_load_list(row.get("ips_json")) or []):
+            if ip not in ips:
+                ips.append(ip)
+        uas = _load_list(existing["ua_list_json"]) or []
+        for ua in (_load_list(row.get("ua_list_json")) or []):
+            if ua not in uas:
+                uas.append(ua)
+        self._conn.execute(
+            "UPDATE campaigns SET last_seen = MAX(last_seen, ?), ips_json = ?,"
+            " ua_list_json = ?, score_max = MAX(score_max, ?),"
+            " session_count = MAX(session_count, ?),"
+            " token_hits = token_hits + ?, injection_hits = injection_hits + ?"
+            " WHERE id = ?",
+            (row.get("last_seen") or 0, _json(ips), _json(uas),
+             row.get("score_max") or 0, row.get("session_count") or 0,
+             row.get("token_hits") or 0, row.get("injection_hits") or 0,
+             row.get("id")))
+
     def prune(self, retention_days):
         if retention_days <= 0:
             return 0
@@ -538,3 +627,10 @@ def _load_list(raw):
         return value if isinstance(value, list) else []
     except ValueError:
         return []
+
+
+def _json(value):
+    try:
+        return json.dumps(value, ensure_ascii=False, default=str)
+    except Exception:
+        return "[]"

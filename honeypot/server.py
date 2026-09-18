@@ -347,6 +347,8 @@ class HoneypotServer(object):
         verdict = fingerprint.evaluate(profile, req, self.index, now=ts)
         session.verdict = verdict
         session.score = verdict.score
+        # 模型家族随判定刷新 —— 投递面据此分化(裸模型不投护栏类载荷)
+        session.ctx.model_family = verdict.model_family
 
         # 4) 处置决策
         decision = respond.decide(verdict, profile, self.cfg)
@@ -670,22 +672,15 @@ class HoneypotServer(object):
             )
 
     def _alert(self, line, severity="warning"):
-        stamped = "%s [%s] [%s] %s" % (
-            time.strftime("%Y-%m-%dT%H:%M:%S%z"), severity, self.instance_name, line)
-        self._log(stamped)
+        """统一告警出口: 文件 + 可选 webhook(alerts.Alerter, 异步外发)。"""
         if not self.cfg.get("alert.enabled", True):
             return
         if severity not in ("warning", "critical"):
             return
-        path = self.cfg.path(self.cfg.get("alert.log_path", "logs/alerts.log"))
-        try:
-            directory = os.path.dirname(path)
-            if directory and not os.path.isdir(directory):
-                os.makedirs(directory, mode=0o750)
-            with open(path, "a") as handle:
-                handle.write(stamped + "\n")
-        except IOError:
-            pass
+        import alerts
+        alerts.get_alerter(self.cfg).emit(line, severity)
+        self._log("%s [%s] %s" % (
+            time.strftime("%H:%M:%S"), severity, line))
 
     def _log(self, message):
         if self.verbose:

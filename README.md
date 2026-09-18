@@ -605,6 +605,15 @@ Install a CJK font on whatever machine displays the dashboard
 or open it from a normal desktop browser. This is a display-side requirement —
 the honeypot itself neither needs nor embeds any font.
 
+## New in this release
+
+- Model-differentiated countermeasures — bare local models (ollama/vllm) stop
+  receiving guardrail payloads that cannot work on them
+- Webhook alerting (`alert.webhook_url`) for SOC integration
+- HTTPS honeypot surface (`cogtrap cert`)
+- Multi-node aggregation (`cogtrap hub` + `cogtrap push`) with cross-instance
+  campaign attribution
+
 ## Documentation
 
 | Document | Question it answers |

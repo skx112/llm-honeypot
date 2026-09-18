@@ -1,8 +1,9 @@
 {
   "instance": "hw-blue-honeypot-01",
-
   "http": {
-    "listen": ["0.0.0.0"],
+    "listen": [
+      "0.0.0.0"
+    ],
     "port": 8080,
     "server_header": "nginx/1.24.0 (Ubuntu)",
     "tls": {
@@ -11,20 +12,17 @@
       "key": ""
     }
   },
-
   "ssh_decoy": {
     "enabled": true,
     "listen": "0.0.0.0",
     "port": 2222,
     "banner": "SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.11"
   },
-
   "dashboard": {
     "enabled": true,
     "host": "127.0.0.1",
     "port": 8899
   },
-
   "limits": {
     "max_connections": 2048,
     "max_per_ip": 24,
@@ -37,7 +35,6 @@
     "global_tarpit_budget_per_min": 900.0,
     "load_shed_threshold": 0.92
   },
-
   "tarpit": {
     "base_delay": 0.4,
     "growth": 1.32,
@@ -47,7 +44,6 @@
     "infinite_stream_max": 120.0,
     "lockdown_keepalive": 240.0
   },
-
   "inject": {
     "enabled": true,
     "min_score": 50,
@@ -55,7 +51,6 @@
     "beacon_min_score": 70,
     "custom_dir": "payloads/custom"
   },
-
   "block": {
     "armed": false,
     "mode": "absorb",
@@ -63,24 +58,29 @@
     "auto_threshold": 85,
     "ttl_seconds": 3600,
     "absorb_target": "127.0.0.1:8080",
-    "whitelist": ["127.0.0.1/32", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+    "whitelist": [
+      "127.0.0.1/32",
+      "10.0.0.0/8",
+      "172.16.0.0/12",
+      "192.168.0.0/16"
+    ]
   },
-
   "honeytokens": {
     "enabled": true,
     "aws_like": true,
     "github_like": true,
     "internal_api_like": true
   },
-
   "store": {
     "path": "var/telemetry.db",
     "retention_days": 180
   },
-
   "alert": {
     "enabled": true,
     "min_score": 70,
-    "log_path": "logs/alerts.log"
+    "log_path": "logs/alerts.log",
+    "webhook_url": "",
+    "webhook_min_severity": "warning",
+    "webhook_timeout": 5.0
   }
 }
