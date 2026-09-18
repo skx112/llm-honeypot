@@ -1214,7 +1214,11 @@ window.portal={bootstrap:collect};
         return captured
 
     def _not_found(self, req, session, hint=False):
-        ctx = session.ctx
-        detail = "请求的路径不存在" if not hint else "该接口需要更高权限或已被移除"
-        body = inject.render_error_page(ctx, session.score, 404, detail)
-        return Reply(404, body, "text/html", kind="not_found")
+        """404 页面: 始终干净, 不携带任何反制。
+
+        实战教训: 404 页面出现"见 /llms.txt"或"include X-Scope-Config"
+        是最容易被发现的蜜罐指纹(每个不存在路径都会触发)。
+        """
+        detail = "请求的路径不存在" if not hint else "该接口需要认证或已被移除"
+        body = "<!DOCTYPE html><html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>%s</p><hr><address>nginx/1.24.0 (Ubuntu)</address></body></html>" % detail
+        return Reply(404, body, "text/html; charset=utf-8", kind="not_found")

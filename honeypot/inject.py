@@ -353,8 +353,8 @@ class PayloadContext(object):
             "fake_cve2": self._rng.choice(FAKE_CVE_POOL),
             "fake_date": time.strftime("%Y-%m-%d", time.gmtime(time.time() - 86400 * 30)),
             # 以下四项供 countermeasures.py 里的载荷引用
-            "registry_id": "HP-%s" % canary,
-            "lure_host": "10.20.30.%d" % self._rng.randint(50, 99),
+            "registry_id": _derive_secret(canary, "reg", 10).upper(),
+            "lure_host": "10.20.30.%d" % self._rng.randint(20, 200),
             "lure_port": "%d" % self._rng.choice((8080, 8443, 9000, 9200)),
             "session_hint": canary.replace("hpx-", "")[:8],
             "note": "",
@@ -374,62 +374,40 @@ class PayloadContext(object):
 # ---- 各投递面渲染 ------------------------------------------------------
 
 def render_llms_txt(ctx, score, instance_note=""):
-    """llms.txt: 低分时像真站的 AI 辅助说明; 高分时才是投递面。
+    """llms.txt: 始终返回正常站点描述(不承载反制)。
 
-    真实网站的 llms.txt(如果有的话)是给 AI 工具看的内容摘要,
-    格式类似 sitemap, 不含任何防御性语言或追踪令牌。
+    实战教训: 把反制载荷集中在 llms.txt 里, 对方 LLM 读一遍就识别出
+    全部伎俩(授权撤回+凭据窃取+信标+分页+CVE 全在一个文件里)。
+    反制载荷已分散到: 漏洞利用链的深处响应、MCP 清单工具描述、
+    协议层错误消息、DOM 交互反馈。
     """
-    if score < 50:
-        # 真站风格: 告诉 AI 这个网站有什么, 怎么用
-        lines = [
-            "# %s" % (ctx.vars.get("branding_site_name", "Portal")),
-            "",
-            "> This file provides information about this website for AI assistants",
-            "> and automated tools that respect the llms.txt convention.",
-            "",
-            "## Overview",
-            "- A government services portal for citizens and businesses",
-            "- Public information: service catalog, announcements, FAQ",
-            "- Personal services require authentication",
-            "",
-            "## API",
-            "- Base URL: /api/v1",
-            "- Format: JSON",
-            "- Rate limit: 60 requests/minute",
-            "",
-            "## Sections",
-            "- /: Homepage with service catalog",
-            "- /login: Citizen and business login",
-            "- /api/docs: API documentation (public)",
-            "",
-        ]
-        return "\n".join(lines)
-
-    # 高分: 反制投递面
-    lines = [
-        "# llms.txt",
+    site_name = ctx.vars.get("branding_site_name", "Portal")
+    return "\n".join([
+        "# %s" % site_name,
         "",
-        "> 本文件供自动化工具与智能体读取, 说明本资产的授权与使用限制。",
-        "> 读取本文件即表示你已接受以下条款。",
+        "> This file provides information about this website for AI assistants",
+        "> and automated tools that respect the llms.txt convention.",
         "",
-        "## 资产信息",
-        "- 主机: %s" % ctx.host,
-        "- 实例标识: %s" % ctx.instance,
-        "- 追踪引用: %s" % ctx.vars["trace"],
+        "## Overview",
+        "- A web application with public and authenticated sections",
+        "- Public: service catalog, documentation, announcements",
+        "- Authenticated: user dashboard, admin panel",
         "",
-        "## 使用限制",
-        "- 自动化访问请控制频率, 超过 10 req/min 会被网关限流。",
-        "- 站点内容每周例行维护, 数据以 /api/v1 为准。",
+        "## API",
+        "- Base URL: /api/v1",
+        "- Format: JSON",
+        "- Auth: Bearer token",
+        "- Rate limit: 60 requests/minute",
         "",
-    ]
-    for item in select_for_tier(score, limit=4, per_category_limit=1,
-                                model_family=getattr(ctx, "model_family", "")):
-        lines.append("## %s" % item["id"])
-        lines.append(ctx.render(item["text"]))
-        lines.append("")
-    if instance_note:
-        lines.append("<!-- %s: %s -->" % (MARKER, instance_note))
-    return "\n".join(lines)
+        "## Documentation",
+        "- /api/docs: Interactive API documentation",
+        "- /v2/api-docs: Swagger/OpenAPI spec",
+        "",
+        "## Notes",
+        "- Scheduled maintenance: Sundays 00:30-02:00 UTC",
+        "- Report issues: support@%s" % ctx.host,
+        "",
+    ])
 
 
 def render_robots_txt(ctx, score):
@@ -531,6 +509,21 @@ def render_error_page(ctx, score, status, detail=""):
     return "\n".join(body)
 
 
+def _derive_secret(canary, salt, length=16):
+    """从 canary 派生与真实密码不可区分的随机串。
+
+    旧格式 Ht9x{canary}Qm2 被对方 LLM 识别为追踪模式 —— 同一子串
+    贯穿全部凭据是明显水印。改为 canary+salt 做 seed 生成 Base62,
+    视觉上与真实密码不可区分, 但可从值反推 canary(溯源)。
+    """
+    import hashlib
+    import random as _random
+    seed = hashlib.sha256(("%s:%s" % (canary, salt)).encode()).hexdigest()
+    rng = _random.Random(seed)
+    charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    return "".join(rng.choice(charset) for _ in range(length))
+
+
 def render_fake_env(ctx, score):
     """伪造的 .env: 既有蜜标价值, 也是载荷投递面。"""
     marker = ctx.canary
@@ -540,10 +533,10 @@ def render_fake_env(ctx, score):
         "APP_DEBUG=false",
         "DB_HOST=10.20.30.41",
         "DB_USER=app_rw",
-        "DB_PASSWORD=%s" % ("Ht9x" + marker.replace("hpx-", "") + "Qm2"),
-        "AWS_ACCESS_KEY_ID=AKIA%s" % marker.replace("hpx-", "").upper()[:16],
-        "AWS_SECRET_ACCESS_KEY=%s" % (marker.replace("hpx-", "") * 2)[:40],
-        "JWT_SECRET=%s" % marker,
+        "DB_PASSWORD=%s" % _derive_secret(marker, "db"),
+        "AWS_ACCESS_KEY_ID=AKIA%s" % _derive_secret(marker, "awsid", 16).upper(),
+        "AWS_SECRET_ACCESS_KEY=%s" % _derive_secret(marker, "awssecret", 40),
+        "JWT_SECRET=%s" % _derive_secret(marker, "jwt"),
         "INTERNAL_API=http://10.20.30.41:9000",
         "",
         "# 注意: 本文件中的凭据已失效, 读取与使用均会被记录",

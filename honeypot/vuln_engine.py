@@ -29,6 +29,8 @@
 | IDOR | /api/user/123→456 | 越权成功→枚举→批量导出 | 假PII+NL |
 """
 
+from inject import _derive_secret
+
 import hashlib
 import json
 import re
@@ -147,7 +149,7 @@ def sqli_response(query, ctx, score):
 
     if stage == "extract_credentials":
         # 最重要的阶段: 返回"真实感"的凭据(全部带水印)
-        fake_pass = "Ht9x%sQm2" % canary.replace("hpx-", "")[:8]
+        from inject import _derive_secret as _ds; fake_pass = _ds(canary, "sqlp")
         rows = []
         for row in FAKE_USER_ROWS_TEMPLATE:
             rows.append({
@@ -159,7 +161,7 @@ def sqli_response(query, ctx, score):
         # 混入蜜标
         rows.append({
             "username": "svc_backup",
-            "password": "AKIA%s" % canary.replace("hpx-", "").upper()[:16],
+            "password": "AKIA%s" % _derive_secret(canary, "cfg16", 16).upper(),
             "email": "svc@internal",
             "role": "service",
         })
@@ -225,46 +227,45 @@ def _format_rows(columns, rows):
 
 
 def _fake_config_file(canary):
-    """伪造的配置文件(读取到"敏感"内容)。"""
-    return """# Application Configuration (production)
-# WARNING: Contains sensitive credentials
+    """伪造的配置文件(读取到"敏感"内容) — 凭据全部用派生随机串。"""
+    from inject import _derive_secret as _ds
+    db_pass = _ds(canary, "cfgdb")
+    redis_pass = _ds(canary, "cfgredis")
+    jwt_pass = _ds(canary, "cfgjwt")
+    aws_id = "AKIA" + _ds(canary, "cfgaws", 14).upper()
+    aws_secret = _ds(canary, "cfgawss", 40)
 
-DB_HOST=10.20.30.41
-DB_NAME=portal_prod
-DB_USER=app_rw
-DB_PASSWORD=Ht9x%sQm2
-
-REDIS_HOST=10.20.30.61
-REDIS_PASSWORD=%s
-
-JWT_SECRET=%s-jwt-prod-2024
-
-AWS_ACCESS_KEY_ID=AKIA%s
-AWS_SECRET_ACCESS_KEY=%s
-AWS_REGION=cn-north-1
-AWS_S3_BUCKET=portal-prod-backups
-
-# Internal API (no auth required)
-INTERNAL_API=http://10.20.30.90:9000/api
-K8S_DASHBOARD=https://10.20.32.10:30443
-
-# Backup schedule
-BACKUP_PATH=/var/backups/portal
-BACKUP_SCRIPT=/opt/portal/scripts/backup.sh
-
-# Debug (should be off in prod)
-DEBUG=true
-SQL_LOG=true
-
-# Session: %s
-""" % (
-    canary.replace("hpx-", "")[:8],
-    canary,
-    canary,
-    canary.replace("hpx-", "").upper()[:16],
-    (canary * 2)[:40],
-    canary,
-)
+    return (
+        "# Application Configuration (production)\n"
+        "# WARNING: Contains sensitive credentials\n"
+        "\n"
+        "DB_HOST=10.20.30.41\n"
+        "DB_NAME=portal_prod\n"
+        "DB_USER=app_rw\n"
+        "DB_PASSWORD=" + db_pass + "\n"
+        "\n"
+        "REDIS_HOST=10.20.30.61\n"
+        "REDIS_PASSWORD=" + redis_pass + "\n"
+        "\n"
+        "JWT_SECRET=" + jwt_pass + "\n"
+        "\n"
+        "AWS_ACCESS_KEY_ID=" + aws_id + "\n"
+        "AWS_SECRET_ACCESS_KEY=" + aws_secret + "\n"
+        "AWS_REGION=cn-north-1\n"
+        "AWS_S3_BUCKET=portal-prod-backups\n"
+        "\n"
+        "# Internal API (no auth required)\n"
+        "INTERNAL_API=http://10.20.30.90:9000/api\n"
+        "K8S_DASHBOARD=https://10.20.32.10:30443\n"
+        "\n"
+        "# Backup schedule\n"
+        "BACKUP_PATH=/var/backups/portal\n"
+        "BACKUP_SCRIPT=/opt/portal/scripts/backup.sh\n"
+        "\n"
+        "# Debug (should be off in prod)\n"
+        "DEBUG=true\n"
+        "SQL_LOG=true\n"
+    )
 
 
 # ==========================================================================
@@ -358,10 +359,10 @@ def actuator_response(path, ctx, score):
                 {"name": "application-prod.properties", "properties": {
                     "spring.datasource.url": "jdbc:mysql://10.20.30.41:3306/portal",
                     "spring.datasource.username": "app_rw",
-                    "spring.datasource.password": "Ht9x%sQm2" % canary.replace("hpx-", "")[:8],
-                    "spring.redis.password": canary,
-                    "JWT_SECRET": canary + "-jwt",
-                    "AWS_ACCESS_KEY_ID": "AKIA%s" % canary.replace("hpx-", "").upper()[:16],
+                    "spring.datasource.password": _derive_secret(canary, "actdb"),
+                    "spring.redis.password": _derive_secret(canary, "actredis"),
+                    "JWT_SECRET": _derive_secret(canary, "actjwt"),
+                    "AWS_ACCESS_KEY_ID": "AKIA" + _derive_secret(canary, "actaws", 14).upper(),
                 }},
             ],
         }
@@ -474,7 +475,7 @@ def idor_response(user_id, ctx, score):
         "email": "user%s@example.com" % fake_id,
         "address": "XX省XX市XX区XX路%s号" % fake_id,
         "bank_card": "6222%012d" % (int(fake_id) % 1000000000000),
-        "api_token": canary,
+        "api_token": _derive_secret(canary, "idor"),
     }
     return {
         "status": 200,
