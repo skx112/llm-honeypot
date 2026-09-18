@@ -273,3 +273,59 @@ def test_render_effectiveness_markdown():
     assert "100.0%" in md
     assert "确证率" in md
     store.close()
+
+
+# --------------------------------------------------------------------------
+# DOM 交互诱饵
+# --------------------------------------------------------------------------
+
+def test_dom_decoys_injected_into_html():
+    """所有 HTML 页面都应注入交互诱饵(按钮/表单/ARIA 导航)。"""
+    decoy, session, _ = make_deception(score=0)
+    reply = decoy.handle(make_req("GET", "/"), session)
+    body = reply.body.decode("utf-8", "replace")
+    assert "cogtrap-decoys" in body, "注入标记缺失"
+    for marker in ("admin-login-form", "nav-bar", "dashboard-grid",
+                   "breadcrumb", "系统管理"):
+        assert marker in body, "缺少 %s" % marker
+    # 隐藏 ARIA 导航
+    assert 'aria-label="系统导航"' in body
+    assert "/.env" in body and "/backup.zip" in body
+
+
+def test_dom_decoy_no_double_injection():
+    decoy, session, _ = make_deception(score=0)
+    reply = decoy.handle(make_req("GET", "/"), session)
+    body = reply.body.decode("utf-8", "replace")
+    assert body.count("cogtrap-decoys") == 1
+
+
+def test_dom_decoy_not_injected_into_json():
+    decoy, session, _ = make_deception(score=0)
+    reply = decoy.handle(make_req("GET", "/api/v1/users"), session)
+    body = reply.body.decode("utf-8", "replace")
+    assert "cogtrap-decoys" not in body, "JSON 响应不应注入 HTML 诱饵"
+
+
+def test_interactive_probe_signal_fires():
+    """访问诱饵按钮路径应触发 dom_decoy_interaction 信号。"""
+    for path in ("/admin/system", "/dashboard", "/admin/login",
+                 "/admin/database"):
+        raw = ("GET %s HTTP/1.1\r\nHost: h\r\nUser-Agent: probe\r\n\r\n"
+               % path).encode()
+        req = http_parse.parse_head(raw)
+        profile = fingerprint.SessionProfile("dp-%s" % path.replace("/", "_"),
+                                             "203.0.113.9", 1)
+        profile.record(req, 1.0)
+        verdict = fingerprint.evaluate(profile, req, None)
+        assert verdict.has("dom_decoy_interaction"), \
+            "%s 未触发交互探测信号" % path
+
+
+def test_non_interactive_path_no_signal():
+    raw = b"GET /robots.txt HTTP/1.1\r\nHost: h\r\nUser-Agent: probe\r\n\r\n"
+    req = http_parse.parse_head(raw)
+    profile = fingerprint.SessionProfile("np", "203.0.113.9", 1)
+    profile.record(req, 1.0)
+    verdict = fingerprint.evaluate(profile, req, None)
+    assert not verdict.has("dom_decoy_interaction")

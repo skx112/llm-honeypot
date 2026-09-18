@@ -101,6 +101,7 @@ Each module documents: responsibility / public interface / dependencies / **deli
 | `tarpit` (L0) | Delay planning, three-tier budget guardrails | — | Execution (plan and execution are separated so tarpit logic is testable without IO) |
 | `report` (L0) | Forensic bundles, evidence digests | — | Credibility judgement; redaction (no real assets exist inside a honeypot by construction) |
 | `dashboard` (L0) | Loopback-only operator UI | — | Authentication (loopback *is* the boundary); frontend build step |
+| `dom_decoys` (L0) | DOM-level interactive decoys for browser agents | — | JS logic execution (server routes handle the interaction) |
 | `alerts` (L0) | File + optional async webhook alerting | — | Retry queues/signing (optional-dep territory); multi-protocol gateways |
 | `hub` (L0) | Multi-node aggregation: ingest, merge, watermarked push | — (store injected) | Public exposure (internal facility only); bidirectional sync |
 | `inject` (L1) | Delivery surfaces, canary manager, compliance checks | countermeasures | Corpus definition; scoring |

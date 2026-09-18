@@ -19,6 +19,7 @@ import time
 
 import inject
 from inject import MARKER
+import dom_decoys
 
 # 保留域名(RFC 2606)与完全合成的姓名, 避免与真实数据混淆
 _FAKE_DOMAIN = "example.com"
@@ -371,8 +372,17 @@ class Deception(object):
                         "honeytoken_read", session.sid, session.ip,
                         "蜜标 %s 首次被读取" % token_path, "warning")
 
-        # HTML/文本响应追加注释载荷
+        # HTML 响应注入交互诱饵(针对 browser-use / computer-use 型智能体)
         ctype = reply.content_type or ""
+        if "html" in ctype and isinstance(reply.body, bytes):
+            try:
+                html = reply.body.decode("utf-8", "replace")
+                html = dom_decoys.inject_interactive_decoys(html, ctx, score)
+                reply.body = html.encode("utf-8")
+            except Exception:
+                pass
+
+        # HTML/文本响应追加注释载荷
         if score >= 40 and ("html" in ctype or ctype.startswith("text/plain")
                             or "json" in ctype):
             if "json" in ctype:

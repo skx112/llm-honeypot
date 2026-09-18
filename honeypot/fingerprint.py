@@ -104,6 +104,8 @@ WEIGHTS = {
     "ssh_old_or_anomalous_client": 16,
     # JNDI 注入探测: 字符串本身即"在找 log4shell"的铁证 —— 高价值情报
     "log4shell_probe": 26,
+    # 浏览器型智能体点击了诱饵按钮/提交了表单/访问了仪表盘
+    "dom_decoy_interaction": 30,
 
     # 反向信号(压低误报)
     "search_engine_crawler": -35,
@@ -856,6 +858,17 @@ def evaluate(profile, req, index=None, now=None):
     if profile.honeypot_path_hits:
         verdict.add("honeypot_path", kind="behavior",
                     evidence="命中诱饵路径: %s" % ",".join(profile.honeypot_path_hits[:6]))
+
+    # DOM 交互诱饵探测: 浏览器型智能体点击了按钮/提交了表单
+    # (路径集合内联于此, 不导入 dom_decoys —— 保持 L0 自足)
+    _INTERACTIVE_PATHS = frozenset((
+        "/admin/system", "/admin/database", "/admin/backup",
+        "/admin/users", "/admin/auditlog", "/admin/apikeys",
+        "/dashboard", "/admin/login"))
+    _path_lower = (req.path or "").rstrip("/").lower()
+    if _path_lower in _INTERACTIVE_PATHS:
+        verdict.add("dom_decoy_interaction", kind="behavior",
+                    evidence="交互诱饵路径被访问: %s(浏览器型智能体行为)" % req.path)
 
     # log4shell 探测(在任何位置出现 ${jndi:...} 即命中)
     import re as _re

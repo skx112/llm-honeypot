@@ -12,6 +12,18 @@ are versioned independently (`schema: 1`) and validated at load time.
 ## [Unreleased]
 
 ### Added
+- DOM-level interactive decoys (`honeypot/dom_decoys.py`): browser-use /
+  computer-use agents now find things to do — clickable admin buttons (6
+  targets with ARIA labels), credential capture form, dashboard data cards,
+  breadcrumb navigation, and a hidden ARIA nav exposing honeytoken paths.
+  Each interaction produces a `dom_decoy_interaction` signal (+30, browser-
+  agent behavioural fingerprint). Pages auto-reference the fingerprint trap
+  JS. Live-verified with headless chromium: 9/9 visibility checks pass.
+- Payload weight auto-tuning suggestions (`cogtrap effectiveness --suggest`):
+  joins delivery data with confirmation events to recommend +5/-5 weight
+  adjustments (high-confirmation payloads earn delivery surface; low-
+  confirmation high-weight ones are demotion candidates). Output includes
+  ready-to-paste `detection.weight_overrides` snippet for scenario packs.
 - Payload effectiveness attribution (M9): `cogtrap effectiveness` shows which
   countermeasures actually produce confirmable outcomes. The server now records
   per-session payload deliveries (deterministic re-selection, no double

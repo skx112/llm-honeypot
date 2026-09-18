@@ -1335,6 +1335,11 @@ def cmd_effectiveness(args):
         if not effect["payloads"]:
             warn("尚无投放数据 —— 需要有攻击会话命中蜜罐后才会产生")
             return EXIT_OK
+        if args.suggest:
+            adjustments = report_mod.suggest_weight_adjustments(store)
+            md = report_mod.render_adjustments(adjustments)
+            print(md)
+            return EXIT_OK
         if args.stdout:
             print(report_mod.render_effectiveness(effect))
             return EXIT_OK
@@ -1638,6 +1643,8 @@ def build_parser():
     p_eff = subparsers.add_parser("effectiveness",
                                   help="反制载荷效果归因(哪些真的被服从了)")
     p_eff.add_argument("--stdout", action="store_true", help="输出 Markdown")
+    p_eff.add_argument("--suggest", action="store_true",
+                       help="基于效果给出权重调整建议(不自动应用)")
     p_eff.set_defaults(func=cmd_effectiveness)
 
     p_doc = subparsers.add_parser("doctor", help="环境自检")

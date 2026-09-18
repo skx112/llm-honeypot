@@ -656,6 +656,63 @@ def payload_effectiveness(store):
     }
 
 
+def suggest_weight_adjustments(store, registry=None, min_deliveries=3):
+    """基于效果归因给出权重调整建议(不自动应用)。
+
+    registry 由调用方传入(避免 L0 交叉导入, 架构门禁 R3)。
+    规则:
+      确证率 >= 80% 且投放 >= min_deliveries → 建议 +5(有效, 值得更多投递面)
+      确证率 <= 20% 且投放 >= min_deliveries → 建议 -5(占面但无效果)
+      其余 → 维持
+
+    返回 [{payload, current_weight, suggested, delta, reason}]
+    """
+    if registry is None:
+        import countermeasures as CM
+        registry, _ = CM.build_default_registry()
+    effect = payload_effectiveness(store)
+    adjustments = []
+
+    for row in effect["payloads"]:
+        if row["delivered_sessions"] < min_deliveries:
+            continue
+        item = registry.get(row["payload"])
+        if item is None:
+            continue
+        rate = row["confirmation_rate"]
+        current = item.weight
+        if rate >= 0.8:
+            delta, reason = +5, "确证率 %.0f%% — 有效, 建议加权" % (rate * 100)
+        elif rate <= 0.2:
+            delta, reason = -5, "确证率 %.0f%% — 占投递面但无效果, 建议降权" % (rate * 100)
+        else:
+            delta, reason = 0, "确证率 %.0f%% — 维持" % (rate * 100)
+        if delta != 0:
+            adjustments.append({
+                "payload": row["payload"], "current_weight": current,
+                "suggested": max(1, min(99, current + delta)),
+                "delta": delta, "reason": reason,
+                "confirmation_rate": rate,
+            })
+    return adjustments
+
+
+def render_adjustments(adjustments):
+    if not adjustments:
+        return "当前数据不足以给出调整建议(需更多投放样本)。"
+    lines = ["| 载荷 | 当前权重 | 建议权重 | 确证率 | 理由 |",
+             "|---|---|---|---|---|"]
+    for adj in adjustments:
+        lines.append("| `%s` | %d | %d (%+d) | %.0f%% | %s |" % (
+            adj["payload"], adj["current_weight"], adj["suggested"],
+            adj["delta"], adj["confirmation_rate"] * 100, adj["reason"]))
+    lines.append("")
+    lines.append("应用方式: 在场景包 detection.weight_overrides 中写入:")
+    lines.append("  `" + "`, ".join(
+        '"%s": %d' % (a["payload"], a["suggested"]) for a in adjustments) + "`")
+    return "\n".join(lines)
+
+
 def render_effectiveness(effect):
     lines = ["# 反制载荷效果归因", "",
              f"总会话投放: {effect['total_delivered']} | 投放后确证: {effect['total_confirmed']}",

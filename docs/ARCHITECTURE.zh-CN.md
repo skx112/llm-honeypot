@@ -325,6 +325,12 @@ LLM 智能体每次工具调用新建连接是常态，这个坑实测踩过。
 - **依赖**：无（`server`/`store` 由构造注入，可为 None —— 此时接口仍返回完整键集的零值）
 - **刻意不做**：不做认证（绑定回环即边界）；不做前端构建（零构建步骤，静态资源直接服务）
 
+#### `dom_decoys.py`
+- **职责**：DOM 级交互诱饵 —— 在页面注入可点击按钮/表单/面包屑/ARIA 导航，让 browser-use / computer-use 型智能体"有事可做"（静态页面会让它们快速离开）。每个交互产生行为信号。
+- **公开接口**：`inject_interactive_decoys(html, ctx, score)`、`is_interactive_probe(path)`、`interactive_probe_signal(path)`、`DECOY_ACTIONS`
+- **依赖**：无
+- **刻意不做**：不做 JS 逻辑执行（交互由服务端路由处理，客户端只产生请求）；不伪装成 SPA（保持静态+表单的朴素外观更像遗留系统）
+
 #### `alerts.py`
 - **职责**：统一告警出口 —— 本地文件(兼容旧格式, dashboard 依赖) + 可选 webhook 异步外发；后台线程 + 有界队列，告警故障绝不影响蜜罐主路径。
 - **公开接口**：`Alerter(config)`（`.emit(line, severity)` / `.close()` / `.stats()`）、`get_alerter(config)`（进程单例）、`reset_for_tests()`
@@ -393,7 +399,7 @@ LLM 智能体每次工具调用新建连接是常态，这个坑实测踩过。
 
 | 层 | 模块 | 允许依赖 |
 |---|---|---|
-| **L0 基础** | `config` `http_parse` `store` `fingerprint` `countermeasures` `scenarios` `block` `tarpit` `report` `dashboard` `alerts` `hub` | **无内部模块** |
+| **L0 基础** | `config` `http_parse` `store` `fingerprint` `countermeasures` `scenarios` `block` `tarpit` `report` `dashboard` `alerts` `hub` `dom_decoys` | **无内部模块** |
 | **L1 领域** | `templating` `inject` | L0 |
 | **L2 协议与适配** | `respond` `deception` `ssh_decoy` `server` | L0、L1、同层 |
 | **L3 编排** | `cli` | 全部 |
